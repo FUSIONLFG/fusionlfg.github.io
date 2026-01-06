@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CHAD TRACKER V3</title>
-    <meta name="description" content="Ultimate Workout Tracker">
+    <title>CHAD TRACKER V5</title>
+    <meta name="description" content="Ultimate Workout & Diet Tracker">
     <link rel="manifest" href="manifest.json">
-    <link rel="theme-color" content="#0b1220">
+    <meta name="theme-color" content="#0b1220">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -40,6 +40,7 @@
         <nav class="flex-1 px-4 space-y-2">
             <button onclick="router('home')" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-gray-800 transition-colors flex items-center gap-3">🏠 Accueil</button>
             <button onclick="router('workout')" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-gray-800 transition-colors flex items-center gap-3">💪 Séance</button>
+            <button onclick="router('nutrition')" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-gray-800 transition-colors flex items-center gap-3">🍗 Nutrition</button>
             <button onclick="router('stats')" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-gray-800 transition-colors flex items-center gap-3">📈 Stats</button>
             <button onclick="router('calendar')" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-gray-800 transition-colors flex items-center gap-3">📅 Calendrier</button>
             <button onclick="router('settings')" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-gray-800 transition-colors flex items-center gap-3">⚙️ Réglages</button>
@@ -55,7 +56,7 @@
 
         <div id="view-home" class="p-4 md:p-8 space-y-6 animate-fade-in">
             <div class="glass p-6 rounded-2xl border-l-4 border-accent relative overflow-hidden">
-                <p id="quote-text" class="text-lg italic text-gray-300 relative z-10">"La douleur est temporaire, la gloire est éternelle."</p>
+                <p id="quote-text" class="text-lg italic text-gray-300 relative z-10">"..."</p>
                 <div class="absolute -right-4 -bottom-4 text-9xl opacity-5 text-accent">❝</div>
             </div>
 
@@ -86,16 +87,26 @@
                     <p class="text-xs text-gray-400 uppercase">Streak 🔥</p>
                     <p id="dash-streak" class="text-2xl font-bold text-warning mt-1">0j</p>
                 </div>
+
                 <div class="glass p-4 rounded-2xl text-center">
                     <p class="text-xs text-gray-400 uppercase">Volume Semaine</p>
-                    <p id="dash-vol" class="text-xl font-bold text-white mt-1">0 kg</p>
+                    <p id="dash-vol" class="text-xl font-bold text-white mt-1">0 k</p>
                 </div>
+                <div class="glass p-4 rounded-2xl text-center">
+                    <p class="text-xs text-gray-400 uppercase">Séances Hebdo</p>
+                    <p id="dash-sessions" class="text-xl font-bold text-accent mt-1">0 / 6</p>
+                </div>
+
                 <div class="glass p-4 rounded-2xl text-center">
                     <p class="text-xs text-gray-400 uppercase">Nage Semaine</p>
                     <p id="dash-swim" class="text-xl font-bold text-white mt-1">0 m</p>
                 </div>
+                <div class="glass p-4 rounded-2xl text-center">
+                    <p class="text-xs text-gray-400 uppercase">Eau (Auj.)</p>
+                    <p id="dash-water" class="text-xl font-bold text-blue-400 mt-1">0 L</p>
+                </div>
             </div>
-
+            
             <div class="glass p-4 rounded-2xl">
                 <div class="flex justify-between items-center mb-2">
                     <h3 class="text-gray-400 text-xs uppercase font-bold">Objectif actuel</h3>
@@ -110,35 +121,50 @@
                 <h2 id="workout-title" class="text-2xl font-bold text-white">Séance</h2>
                 <div id="workout-timer-display" class="hidden font-mono text-xl text-accent bg-surface px-3 py-1 rounded-lg border border-gray-700">00:00</div>
             </div>
+            <div id="workout-container" class="space-y-6"></div>
+            <div class="h-24"></div> 
+        </div>
 
-            <div id="workout-container" class="space-y-6">
-                </div>
+        <div id="view-nutrition" class="hidden p-4 md:p-8 pb-32 animate-fade-in">
+            <h2 class="text-2xl font-bold text-white mb-6">Nutrition & Hydratation</h2>
             
-            <div class="h-24"></div> </div>
+            <div class="glass p-6 rounded-2xl border border-blue-900/30 mb-6 text-center relative overflow-hidden">
+                <div class="absolute inset-0 bg-blue-500/5 z-0"></div>
+                <div class="relative z-10">
+                    <h3 class="text-blue-400 font-bold uppercase text-sm mb-2">Hydratation Journalière</h3>
+                    <div class="text-5xl font-bold text-white mb-2"><span id="water-count">0.0</span><span class="text-lg text-gray-400">/ 3.0 L</span></div>
+                    <div class="w-full bg-gray-800 rounded-full h-4 mb-6 overflow-hidden">
+                        <div id="water-bar" class="bg-blue-500 h-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <div class="flex gap-4 justify-center">
+                        <button onclick="addWater(0.25)" class="bg-surface border border-blue-500/30 hover:bg-blue-900/20 text-blue-200 px-4 py-3 rounded-xl font-medium active:scale-95 transition-all">+250ml</button>
+                        <button onclick="addWater(0.5)" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-900/50 active:scale-95 transition-all">+500ml</button>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="text-xl font-bold text-white mb-4">Plan Alimentaire</h3>
+            <div id="diet-container" class="space-y-4"></div>
+        </div>
 
         <div id="view-stats" class="hidden p-4 md:p-8 space-y-6 animate-fade-in">
             <h2 class="text-2xl font-bold text-white">Analyses</h2>
-            
             <div class="flex space-x-2 overflow-x-auto pb-2 no-scrollbar">
                 <button onclick="switchStatTab('weight')" class="stat-tab-btn px-4 py-2 bg-surface rounded-full text-sm border border-gray-700 whitespace-nowrap active-tab">Poids</button>
                 <button onclick="switchStatTab('muscle')" class="stat-tab-btn px-4 py-2 bg-surface rounded-full text-sm border border-gray-700 whitespace-nowrap">Muscu</button>
                 <button onclick="switchStatTab('swim')" class="stat-tab-btn px-4 py-2 bg-surface rounded-full text-sm border border-gray-700 whitespace-nowrap">Natation</button>
             </div>
-
             <div class="glass p-4 rounded-2xl h-80 relative">
                 <canvas id="mainChart"></canvas>
             </div>
-
             <div id="stats-weight-controls" class="stat-control">
                 <div class="flex gap-2">
                     <input type="number" id="new-weight" placeholder="Poids (kg)" class="bg-bg border border-gray-700 rounded-xl px-4 py-3 text-white flex-1 focus:ring-2 focus:ring-primary outline-none">
                     <button onclick="logWeight()" class="bg-primary text-white px-6 rounded-xl font-bold">Add</button>
                 </div>
             </div>
-
             <div id="stats-muscle-controls" class="stat-control hidden space-y-4">
-                <select id="stats-exo-select" onchange="updateMuscleStats()" class="w-full bg-bg border border-gray-700 rounded-xl px-4 py-3 text-white outline-none">
-                    </select>
+                <select id="stats-exo-select" onchange="updateMuscleStats()" class="w-full bg-bg border border-gray-700 rounded-xl px-4 py-3 text-white outline-none"></select>
                 <div class="grid grid-cols-3 gap-2">
                     <div class="glass p-2 rounded-xl text-center">
                         <span class="text-[10px] text-gray-400">PR Poids</span>
@@ -154,7 +180,6 @@
                     </div>
                 </div>
             </div>
-            
             <div id="stats-swim-controls" class="stat-control hidden">
                  <div class="glass p-4 rounded-xl flex justify-between items-center">
                     <span class="text-sm text-gray-400">Best Pace (30j)</span>
@@ -165,15 +190,7 @@
 
         <div id="view-calendar" class="hidden p-4 md:p-8 animate-fade-in">
             <h2 class="text-2xl font-bold text-white mb-6">Historique</h2>
-            <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center mb-4">
-                <div class="text-xs text-gray-500 py-2">L</div>
-                <div class="text-xs text-gray-500 py-2">M</div>
-                <div class="text-xs text-gray-500 py-2">M</div>
-                <div class="text-xs text-gray-500 py-2">J</div>
-                <div class="text-xs text-gray-500 py-2">V</div>
-                <div class="text-xs text-gray-500 py-2">S</div>
-                <div class="text-xs text-gray-500 py-2">D</div>
-                </div>
+            <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center mb-4"></div>
             <div class="mt-6 glass p-4 rounded-2xl">
                 <h3 class="text-sm font-bold text-white mb-2">Légende</h3>
                 <div class="flex gap-3 text-xs">
@@ -187,17 +204,18 @@
         <div id="view-settings" class="hidden p-4 md:p-8 space-y-6 animate-fade-in">
             <h2 class="text-2xl font-bold text-white">Réglages</h2>
             
+            <div class="glass p-6 rounded-2xl border border-primary/20">
+                <h3 class="text-lg font-bold text-white mb-2">🔔 Notifications & Rappels</h3>
+                <p class="text-sm text-gray-400 mb-4">Génère ton planning complet (Eau toutes les 1h30, Collations, Sport, Digital Detox) et ajoute-le à ton iPhone.</p>
+                <button onclick="downloadCalendar()" class="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+                    📅 Générer Planning Complet
+                </button>
+            </div>
+
             <div class="glass rounded-2xl overflow-hidden divide-y divide-gray-800">
                 <div class="p-4 flex justify-between items-center">
                     <span>Timer par défaut (sec)</span>
                     <input type="number" id="setting-timer" class="bg-bg w-20 p-2 rounded text-center text-white border border-gray-700" value="90">
-                </div>
-                <div class="p-4 flex justify-between items-center">
-                    <span>Notifications</span>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="setting-notif" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                    </label>
                 </div>
             </div>
 
@@ -208,7 +226,6 @@
                     <input type="file" onchange="importData(this)" class="absolute inset-0 opacity-0 cursor-pointer">
                 </div>
                 <button onclick="resetApp()" class="w-full bg-red-900/20 border border-red-900 text-red-400 hover:bg-red-900/40 py-3 rounded-xl font-medium">⚠️ Reset Complet</button>
-                <a href="README.md" target="_blank" class="block text-center text-xs text-gray-500 mt-4">Voir l'aide d'installation (iPhone)</a>
             </div>
         </div>
 
@@ -223,13 +240,13 @@
             <span class="text-xl mb-1">💪</span>
             <span class="text-[10px]">Go</span>
         </button>
+        <button onclick="router('nutrition')" class="nav-item flex flex-col items-center justify-center w-1/5 text-gray-400 hover:text-white">
+            <span class="text-xl mb-1">🍗</span>
+            <span class="text-[10px]">Diet</span>
+        </button>
         <button onclick="router('stats')" class="nav-item flex flex-col items-center justify-center w-1/5 text-gray-400 hover:text-white">
             <span class="text-xl mb-1">📈</span>
             <span class="text-[10px]">Stats</span>
-        </button>
-        <button onclick="router('calendar')" class="nav-item flex flex-col items-center justify-center w-1/5 text-gray-400 hover:text-white">
-            <span class="text-xl mb-1">📅</span>
-            <span class="text-[10px]">Agenda</span>
         </button>
         <button onclick="router('settings')" class="nav-item flex flex-col items-center justify-center w-1/5 text-gray-400 hover:text-white">
             <span class="text-xl mb-1">⚙️</span>
@@ -258,7 +275,6 @@
 
     <script src="app.js"></script>
     <script>
-        // Init SW
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('service-worker.js');
         }

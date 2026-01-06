@@ -2,15 +2,17 @@
    CONSTANTS & CONFIG
    ========================================= */
 const DAYS_PLAN = [
-    { name: "Repos / Batch Cooking", type: "rest" }, // Dimanche (0)
+    { name: "Repos / Batch Cooking", type: "rest", short: "Repos" }, // Dimanche (0)
     { // Lundi (1)
         name: "Dos & Biceps",
         type: "muscle",
+        short: "Dos/Bi",
         exos: ["Tractions (Lestées)", "Tirage Vertical", "Tirage Machine", "Curl Debout", "Curl Incliné", "Curl Poulie"]
     },
     { // Mardi (2)
         name: "Natation HIIT",
         type: "swim_hiit",
+        short: "Nage HIIT",
         details: [
             "Échauffement: 200m crawl",
             "Technique: 6x25m (récup 20s)",
@@ -21,21 +23,25 @@ const DAYS_PLAN = [
     { // Mercredi (3)
         name: "Jambes & Épaules",
         type: "muscle",
+        short: "Jambes/Ép",
         exos: ["Presse à cuisses", "Leg Extension", "Leg Curl", "Développé Épaules", "Élévations Latérales"]
     },
     { // Jeudi (4)
         name: "Pecs & Triceps",
         type: "muscle",
+        short: "Pecs/Tri",
         exos: ["Smith Incliné", "Écarté Haut", "Écarté Bas", "Triceps Poulie", "Extension Overhead", "Rappel Élévations"]
     },
     { // Vendredi (5)
         name: "Full Body Rappel",
         type: "muscle",
+        short: "Full Body",
         exos: ["Tractions", "Presse (Léger)", "Smith Incliné", "Super-set Bras", "Élévations Latérales"]
     },
     { // Samedi (6)
         name: "Natation Endurance",
         type: "swim_endurance",
+        short: "Nage Endu",
         details: [
             "Échauffement: 300m facile",
             "Pyramide: 200-400-600-400-200m",
@@ -43,6 +49,15 @@ const DAYS_PLAN = [
             "Calme: 100m"
         ]
     }
+];
+
+// Affichage visuel (la génération ICS a sa propre logique)
+const DIET_PLAN = [
+    { time: "07:30", label: "Petit Déjeuner", desc: "Oeufs, Avoine, Fruit, Café" },
+    { time: "10:30", label: "Collation Matin", desc: "Fruit, Amandes, Shaker" },
+    { time: "12:30", label: "Déjeuner", desc: "Poulet/Poisson, Glucides, Légumes" },
+    { time: "17:00", label: "Collation Aprems", desc: "Whey, Fruit, Hydratation" },
+    { time: "20:00", label: "Dîner (Post-Workout)", desc: "Protéine maigre, Glucides, Légumes" }
 ];
 
 const QUOTES = [
@@ -54,11 +69,14 @@ const QUOTES = [
     "Tout est dans la tête."
 ];
 
-// State Global
 let state = {
-    workouts: [], // {id, date, exo, kg, reps, note}
-    swims: [],    // {id, date, type, style, dist, time, pace, rpe}
-    weights: [],  // {date, kg}
+    workouts: [], 
+    swims: [],    
+    weights: [],  
+    nutrition: {
+        water: 0,
+        lastReset: null
+    },
     settings: {
         timerDefault: 90,
         notifications: false,
@@ -69,22 +87,23 @@ let state = {
 let timerInterval;
 let timerSeconds = 0;
 let chartInstance = null;
-let currentSessionGoal = ""; // Variable pour stocker l'objectif de la séance en cours
+let currentSessionGoal = ""; 
 
 /* =========================================
-   INIT & STORAGE
+   INIT
    ========================================= */
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
+    checkDailyReset();
     initRouter();
     renderDashboard();
-    setupNotifications();
 });
 
 function loadData() {
     const s = localStorage.getItem('chad_tracker_v3');
     if (s) {
         state = JSON.parse(s);
+        if(!state.nutrition) state.nutrition = { water: 0, lastReset: new Date().toDateString() };
         if(!state.settings) state.settings = { timerDefault: 90, notifications: false, goalText: "" };
     }
 }
@@ -94,27 +113,31 @@ function saveData() {
     renderDashboard();
 }
 
+function checkDailyReset() {
+    const today = new Date().toDateString();
+    if (state.nutrition.lastReset !== today) {
+        state.nutrition.water = 0;
+        state.nutrition.lastReset = today;
+        saveData();
+    }
+}
+
 /* =========================================
-   ROUTER & NAVIGATION
+   ROUTER
    ========================================= */
 function router(viewName) {
-    // Hide all views
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
-    
-    // Show selected
     document.getElementById(`view-${viewName}`).classList.remove('hidden');
     
-    // Reset session goal if leaving workout
     if (viewName !== 'workout') currentSessionGoal = "";
 
-    // Logic specific to view
     if (viewName === 'workout') renderWorkoutView();
     if (viewName === 'stats') renderStats();
     if (viewName === 'calendar') renderCalendar();
     if (viewName === 'settings') renderSettings();
+    if (viewName === 'nutrition') renderNutrition();
     if (viewName === 'home') renderDashboard();
 
-    // Nav active state
     document.querySelectorAll('.nav-item span').forEach(el => el.classList.remove('text-primary', 'text-white'));
 }
 
@@ -129,23 +152,18 @@ function initRouter() {
    DASHBOARD
    ========================================= */
 function renderDashboard() {
-    // Quote
     const qIndex = new Date().getDate() % QUOTES.length;
     document.getElementById('quote-text').innerText = `"${QUOTES[qIndex]}"`;
 
-    // Today's Plan
     const dayIndex = new Date().getDay();
     const plan = DAYS_PLAN[dayIndex];
     document.getElementById('today-workout-name').innerText = plan.name;
     document.getElementById('today-icon').innerText = plan.type.includes('swim') ? '🏊‍♂️' : (plan.type === 'rest' ? '💤' : '🏋️');
 
-    // Stats Rapides
     const lastWeight = state.weights.length > 0 ? state.weights[state.weights.length - 1].kg : '--';
     document.getElementById('dash-weight').innerText = lastWeight;
-
     document.getElementById('dash-goal').innerText = state.settings.goalText || "Définir objectif";
 
-    // Calculs Hebdo
     const now = new Date();
     const day = now.getDay(); 
     const diff = now.getDate() - day + (day == 0 ? -6 : 1); 
@@ -159,11 +177,16 @@ function renderDashboard() {
     const swimLogs = state.swims.filter(s => new Date(s.date) >= monday);
     const swimDist = swimLogs.reduce((acc, curr) => acc + curr.dist, 0);
     document.getElementById('dash-swim').innerText = swimDist + ' m';
-
-    // Streak (Updated Logic)
+    document.getElementById('dash-water').innerText = state.nutrition.water.toFixed(1) + ' L';
     document.getElementById('dash-streak').innerText = calculateStreak() + 'j';
 
-    // Suggestion
+    // --- SÉANCES HEBDO RATIO ---
+    const activeDaysThisWeek = new Set();
+    weekLogs.forEach(w => activeDaysThisWeek.add(w.date.split('T')[0]));
+    swimLogs.forEach(s => activeDaysThisWeek.add(s.date.split('T')[0]));
+    const plannedDaysCount = DAYS_PLAN.filter(d => d.type !== 'rest').length;
+    document.getElementById('dash-sessions').innerText = `${activeDaysThisWeek.size} / ${plannedDaysCount}`;
+
     if(plan.exos && plan.exos.length > 0) {
         const lastLog = state.workouts.filter(w => w.exo === plan.exos[0]).pop();
         if(lastLog) {
@@ -181,12 +204,11 @@ function editGoal() {
     }
 }
 
-// --- FIX: CALCULATE STREAK (Jours consécutifs) ---
 function calculateStreak() {
     const dates = [
         ...state.workouts.map(w => w.date.split('T')[0]),
         ...state.swims.map(s => s.date.split('T')[0])
-    ].sort((a, b) => new Date(b) - new Date(a)); // Plus récent d'abord
+    ].sort((a, b) => new Date(b) - new Date(a));
 
     const uniqueDates = [...new Set(dates)];
     if (uniqueDates.length === 0) return 0;
@@ -196,10 +218,7 @@ function calculateStreak() {
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
     const yesterday = yesterdayDate.toISOString().split('T')[0];
 
-    // Si pas de sport aujourd'hui ni hier, streak brisé
-    if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) {
-        return 0;
-    }
+    if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) return 0;
 
     let streak = 1;
     let currentDate = new Date(uniqueDates[0]);
@@ -220,6 +239,109 @@ function calculateStreak() {
 }
 
 /* =========================================
+   NUTRITION
+   ========================================= */
+function renderNutrition() {
+    const current = state.nutrition.water;
+    const max = 3.0;
+    const pct = Math.min((current / max) * 100, 100);
+    
+    document.getElementById('water-count').innerText = current.toFixed(2);
+    document.getElementById('water-bar').style.width = `${pct}%`;
+
+    const container = document.getElementById('diet-container');
+    container.innerHTML = '';
+
+    DIET_PLAN.forEach(item => {
+        const div = document.createElement('div');
+        div.className = "glass p-4 rounded-xl flex items-center gap-4 border border-gray-800";
+        div.innerHTML = `
+            <div class="font-mono text-accent font-bold text-lg">${item.time}</div>
+            <div>
+                <div class="text-white font-bold text-sm uppercase">${item.label}</div>
+                <div class="text-gray-400 text-xs">${item.desc}</div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function addWater(amount) {
+    state.nutrition.water += amount;
+    saveData();
+    renderNutrition();
+    showToast(`+${amount*1000}ml d'eau 💧`);
+}
+
+/* =========================================
+   CALENDAR EXPORT (ADVANCED REMINDERS)
+   ========================================= */
+function downloadCalendar() {
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ChadTracker//NONSGML v1.0//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
+
+    const daysICS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+
+    // 1. RAPPEL EAU : Toutes les 1h30 de 8h à 22h
+    // 8:00, 9:30, 11:00, 12:30, 14:00, 15:30, 17:00, 18:30, 20:00, 21:30
+    const waterTimes = ["080000", "093000", "110000", "123000", "140000", "153000", "170000", "183000", "200000", "213000"];
+    waterTimes.forEach(t => {
+        icsContent += `BEGIN:VEVENT\nSUMMARY:💧 Hydratation\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T${t}\nDURATION:PT5M\nEND:VEVENT\n`;
+    });
+
+    // 2. COLLATIONS SPÉCIFIQUES
+    // 10:30 Collation
+    icsContent += `BEGIN:VEVENT\nSUMMARY:🍎 Collation Matin\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T103000\nDURATION:PT15M\nEND:VEVENT\n`;
+    // 17:00 Collation (se superpose à l'eau, mais c'est bien d'avoir le rappel spécifique)
+    icsContent += `BEGIN:VEVENT\nSUMMARY:🍌 Collation Aprems\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T170000\nDURATION:PT15M\nEND:VEVENT\n`;
+
+    // 3. MORNING BRIEF 7H
+    DAYS_PLAN.forEach((day, index) => {
+        const dayCode = daysICS[index];
+        icsContent += `BEGIN:VEVENT\nSUMMARY:📅 Auj: ${day.name}\nRRULE:FREQ=WEEKLY;BYDAY=${dayCode}\nDTSTART;TZID=Europe/Paris:20240101T070000\nDURATION:PT10M\nEND:VEVENT\n`;
+    });
+
+    // 4. DIMANCHE TASKS
+    // 17h Batch Cooking (Sunday only)
+    icsContent += `BEGIN:VEVENT\nSUMMARY:🔪 Batch Cooking\nDESCRIPTION:Prépare tes repas de la semaine !\nRRULE:FREQ=WEEKLY;BYDAY=SU\nDTSTART;TZID=Europe/Paris:20240101T170000\nDURATION:PT2H\nEND:VEVENT\n`;
+    // 20h30 Export Backup (Sunday only)
+    icsContent += `BEGIN:VEVENT\nSUMMARY:💾 Backup Export JSON\nDESCRIPTION:Sécurise tes données ChadTracker.\nRRULE:FREQ=WEEKLY;BYDAY=SU\nDTSTART;TZID=Europe/Paris:20240101T203000\nDURATION:PT5M\nEND:VEVENT\n`;
+
+    // 5. DIGITAL WELLBEING (Semaine 22h15)
+    // MO, TU, WE, TH, FR
+    icsContent += `BEGIN:VEVENT\nSUMMARY:📵 Arrêt Téléphone\nDESCRIPTION:Mode Avion activé. Lecture ou dodo.\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR\nDTSTART;TZID=Europe/Paris:20240101T221500\nDURATION:PT30M\nEND:VEVENT\n`;
+
+    // 6. PRÉPA SAC PISCINE (Veille au soir)
+    DAYS_PLAN.forEach((day, index) => {
+        if(day.type.includes('swim')) {
+            // Trouver la veille
+            let prevIndex = index - 1;
+            if(prevIndex < 0) prevIndex = 6;
+            const prevDayCode = daysICS[prevIndex];
+            
+            icsContent += `BEGIN:VEVENT\nSUMMARY:🎒 Sac Piscine\nDESCRIPTION:N'oublie pas : Maillot, bonnet, lunettes pour demain !\nRRULE:FREQ=WEEKLY;BYDAY=${prevDayCode}\nDTSTART;TZID=Europe/Paris:20240101T220000\nDURATION:PT15M\nEND:VEVENT\n`;
+        }
+    });
+
+    // 7. LES SÉANCES SPORT (18h)
+    DAYS_PLAN.forEach((day, index) => {
+        if(day.type === 'rest') return;
+        const dayCode = daysICS[index];
+        const title = day.type.includes('swim') ? `🏊 ${day.name}` : `🏋️ ${day.name}`;
+        icsContent += `BEGIN:VEVENT\nSUMMARY:${title}\nDESCRIPTION:Focus et discipline.\nRRULE:FREQ=WEEKLY;BYDAY=${dayCode}\nDTSTART;TZID=Europe/Paris:20240101T180000\nDURATION:PT1H30M\nEND:VEVENT\n`;
+    });
+
+    icsContent += "END:VCALENDAR";
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.setAttribute('download', 'chad_planning_v5.ics');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/* =========================================
    WORKOUT LOGIC
    ========================================= */
 function renderWorkoutView() {
@@ -235,7 +357,6 @@ function renderWorkoutView() {
         return;
     }
 
-    // --- UPGRADE: Demande Objectif Séance (Si pas encore défini) ---
     if (!plan.type.includes('swim') && !currentSessionGoal) {
         const choice = prompt("🎯 Objectif de la séance ?\n\n1. +1 Rep (Surcharge progressive)\n2. +2.5 kg (Force)\n3. Maintenir (Fatigue/Deload)\n\n(Tape 1, 2 ou 3)");
         if (choice === '1') currentSessionGoal = "+1 Rep";
@@ -250,21 +371,16 @@ function renderWorkoutView() {
     }
 }
 
-// --- MUSCULATION (Updated with Goal Logic) ---
 function renderMuscleInterface(plan, container) {
-    
-    // Affichage du bandeau Objectif
     const goalBanner = document.createElement('div');
     goalBanner.className = "mb-4 bg-primary/10 border border-primary/50 text-primary px-4 py-3 rounded-xl text-center font-bold uppercase text-sm shadow-sm";
     goalBanner.innerHTML = `🔥 Objectif : <span class="text-white">${currentSessionGoal || 'EXPLOSER TOUT'}</span>`;
     container.appendChild(goalBanner);
 
     plan.exos.forEach((exo, idx) => {
-        // Find last set for history
         const history = state.workouts.filter(w => w.exo === exo).slice(-5).reverse();
         const lastSet = history[0];
 
-        // --- INTELLIGENT FILLING ---
         let targetText = "Nouveau";
         let defaultKg = "";
         let defaultReps = "";
@@ -360,7 +476,6 @@ function showHistory(exo) {
     alert(msg);
 }
 
-// --- NATATION ---
 function renderSwimInterface(plan, container) {
     const info = document.createElement('div');
     info.className = "bg-surface p-4 rounded-xl mb-6 border-l-4 border-accent";
@@ -472,23 +587,18 @@ function formatTime(totalSec) {
 }
 
 /* =========================================
-   STATS & CHARTS
+   STATS
    ========================================= */
 function renderStats() {
     const select = document.getElementById('stats-exo-select');
     select.innerHTML = "";
     
-    // --- FIX: Populate dropdown with Plan AND History ---
     let allExos = new Set();
-    
-    // Add plan exos
     DAYS_PLAN.forEach(day => {
         if(day.exos) day.exos.forEach(e => allExos.add(e));
     });
-    // Add history exos
     state.workouts.forEach(w => allExos.add(w.exo));
     
-    // Sort and render
     [...allExos].sort().forEach(ex => {
         const opt = document.createElement('option');
         opt.value = ex;
@@ -504,8 +614,6 @@ function switchStatTab(tab) {
         b.classList.remove('bg-primary', 'text-white', 'border-transparent');
         b.classList.add('bg-surface', 'border-gray-700');
     });
-    
-    // Note: Simple logic implies re-render, adding 'active' class would be better but keeping simple
     
     document.querySelectorAll('.stat-control').forEach(el => el.classList.add('hidden'));
     document.getElementById(`stats-${tab}-controls`).classList.remove('hidden');
@@ -659,21 +767,14 @@ function renderCalendar() {
 }
 
 /* =========================================
-   SETTINGS & DATA
+   SETTINGS
    ========================================= */
 function renderSettings() {
     document.getElementById('setting-timer').value = state.settings.timerDefault;
-    document.getElementById('setting-notif').checked = state.settings.notifications;
     
     document.getElementById('setting-timer').onchange = (e) => {
         state.settings.timerDefault = parseInt(e.target.value);
         saveData();
-    };
-    
-    document.getElementById('setting-notif').onchange = (e) => {
-        state.settings.notifications = e.target.checked;
-        saveData();
-        if(state.settings.notifications) RequestNotifyPermission();
     };
 }
 
@@ -723,14 +824,4 @@ function showToast(msg, error=false) {
         t.style.opacity = '0';
         t.style.top = '0px';
     }, 2500);
-}
-
-function setupNotifications() {
-    // Placeholder
-}
-
-function RequestNotifyPermission() {
-    if ("Notification" in window) {
-        Notification.requestPermission();
-    }
 }
