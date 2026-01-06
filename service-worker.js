@@ -1,4 +1,6 @@
-const CACHE_NAME = 'chad-tracker-v3-cache';
+// J'ai passé la version en V4 pour forcer la mise à jour
+const CACHE_NAME = 'chad-tracker-v4-cache';
+
 const urlsToCache = [
   './',
   './index.html',
@@ -9,9 +11,26 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
+  // Force le nouveau service worker à devenir actif immédiatement
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(urlsToCache))
+  );
+});
+
+self.addEventListener('activate', event => {
+  // Nettoie les anciens caches (V3, V2...) pour faire de la place
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
   );
 });
 
