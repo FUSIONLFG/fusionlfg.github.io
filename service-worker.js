@@ -1,5 +1,4 @@
-// J'ai passé la version en V4 pour forcer la mise à jour
-const CACHE_NAME = 'chad-tracker-v4-cache';
+const CACHE_NAME = 'chad-tracker-v5-cache';
 
 const urlsToCache = [
   './',
@@ -42,4 +41,5 @@ self.addEventListener('fetch', event => {
         return fetch(event.request);
       })
   );
+
 });
