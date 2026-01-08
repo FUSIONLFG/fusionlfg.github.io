@@ -2,14 +2,14 @@
    CONSTANTS & CONFIG
    ========================================= */
 const DAYS_PLAN = [
-    { name: "Repos / Batch Cooking", type: "rest", short: "Repos" }, // Dimanche (0)
-    { // Lundi (1)
+    { name: "Repos / Batch Cooking", type: "rest", short: "Repos" }, 
+    { 
         name: "Dos & Biceps",
         type: "muscle",
         short: "Dos/Bi",
         exos: ["Tractions (Lestées)", "Tirage Vertical", "Tirage Machine", "Curl Debout", "Curl Incliné", "Curl Poulie"]
     },
-    { // Mardi (2)
+    { 
         name: "Natation HIIT",
         type: "swim_hiit",
         short: "Nage HIIT",
@@ -20,25 +20,25 @@ const DAYS_PLAN = [
             "Calme: 100m souple"
         ]
     },
-    { // Mercredi (3)
+    { 
         name: "Jambes & Épaules",
         type: "muscle",
         short: "Jambes/Ép",
         exos: ["Presse à cuisses", "Leg Extension", "Leg Curl", "Développé Épaules", "Élévations Latérales"]
     },
-    { // Jeudi (4)
+    { 
         name: "Pecs & Triceps",
         type: "muscle",
         short: "Pecs/Tri",
         exos: ["Smith Incliné", "Écarté Haut", "Écarté Bas", "Triceps Poulie", "Extension Overhead", "Rappel Élévations"]
     },
-    { // Vendredi (5)
+    { 
         name: "Full Body Rappel",
         type: "muscle",
         short: "Full Body",
         exos: ["Tractions", "Presse (Léger)", "Smith Incliné", "Super-set Bras", "Élévations Latérales"]
     },
-    { // Samedi (6)
+    { 
         name: "Natation Endurance",
         type: "swim_endurance",
         short: "Nage Endu",
@@ -49,6 +49,13 @@ const DAYS_PLAN = [
             "Calme: 100m"
         ]
     }
+];
+
+// Liste des "Gros Exos" qui nécessitent plus de repos (Smart Timer)
+const HEAVY_COMPOUND_LIFTS = [
+    "Tractions", "Tractions (Lestées)", 
+    "Presse à cuisses", "Développé Épaules", 
+    "Smith Incliné", "Tirage Vertical"
 ];
 
 const DIET_PLAN = [
@@ -87,6 +94,7 @@ let timerInterval;
 let timerSeconds = 0;
 let chartInstance = null;
 let currentSessionGoal = ""; 
+let currentExoForTimer = ""; 
 
 /* =========================================
    INIT
@@ -282,33 +290,35 @@ function addWater(amount) {
    CALENDAR EXPORT
    ========================================= */
 function downloadCalendar() {
+    const alarmBlock = `BEGIN:VALARM\nTRIGGER:-PT0M\nDESCRIPTION:Rappel ChadTracker\nACTION:DISPLAY\nEND:VALARM`;
+
     let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ChadTracker//NONSGML v1.0//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
 
     const daysICS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
     const waterTimes = ["080000", "093000", "110000", "123000", "140000", "153000", "170000", "183000", "200000", "213000"];
     
     waterTimes.forEach(t => {
-        icsContent += `BEGIN:VEVENT\nSUMMARY:💧 Hydratation\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T${t}\nDURATION:PT5M\nEND:VEVENT\n`;
+        icsContent += `BEGIN:VEVENT\nSUMMARY:💧 Hydratation\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T${t}\nDURATION:PT5M\n${alarmBlock}\nEND:VEVENT\n`;
     });
 
-    icsContent += `BEGIN:VEVENT\nSUMMARY:🍎 Collation Matin\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T103000\nDURATION:PT15M\nEND:VEVENT\n`;
-    icsContent += `BEGIN:VEVENT\nSUMMARY:🍌 Collation Aprems\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T170000\nDURATION:PT15M\nEND:VEVENT\n`;
+    icsContent += `BEGIN:VEVENT\nSUMMARY:🍎 Collation Matin\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T103000\nDURATION:PT15M\n${alarmBlock}\nEND:VEVENT\n`;
+    icsContent += `BEGIN:VEVENT\nSUMMARY:🍌 Collation Aprems\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T170000\nDURATION:PT15M\n${alarmBlock}\nEND:VEVENT\n`;
 
     DAYS_PLAN.forEach((day, index) => {
         const dayCode = daysICS[index];
-        icsContent += `BEGIN:VEVENT\nSUMMARY:📅 Auj: ${day.name}\nRRULE:FREQ=WEEKLY;BYDAY=${dayCode}\nDTSTART;TZID=Europe/Paris:20240101T070000\nDURATION:PT10M\nEND:VEVENT\n`;
+        icsContent += `BEGIN:VEVENT\nSUMMARY:📅 Auj: ${day.name}\nRRULE:FREQ=WEEKLY;BYDAY=${dayCode}\nDTSTART;TZID=Europe/Paris:20240101T070000\nDURATION:PT10M\n${alarmBlock}\nEND:VEVENT\n`;
     });
 
-    icsContent += `BEGIN:VEVENT\nSUMMARY:🔪 Batch Cooking\nDESCRIPTION:Prépare tes repas de la semaine !\nRRULE:FREQ=WEEKLY;BYDAY=SU\nDTSTART;TZID=Europe/Paris:20240101T170000\nDURATION:PT2H\nEND:VEVENT\n`;
-    icsContent += `BEGIN:VEVENT\nSUMMARY:💾 Backup Export JSON\nDESCRIPTION:Sécurise tes données ChadTracker.\nRRULE:FREQ=WEEKLY;BYDAY=SU\nDTSTART;TZID=Europe/Paris:20240101T203000\nDURATION:PT5M\nEND:VEVENT\n`;
-    icsContent += `BEGIN:VEVENT\nSUMMARY:📵 Arrêt Téléphone\nDESCRIPTION:Mode Avion activé. Lecture ou dodo.\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR\nDTSTART;TZID=Europe/Paris:20240101T221500\nDURATION:PT30M\nEND:VEVENT\n`;
+    icsContent += `BEGIN:VEVENT\nSUMMARY:🔪 Batch Cooking\nDESCRIPTION:Prépare tes repas de la semaine !\nRRULE:FREQ=WEEKLY;BYDAY=SU\nDTSTART;TZID=Europe/Paris:20240101T170000\nDURATION:PT2H\n${alarmBlock}\nEND:VEVENT\n`;
+    icsContent += `BEGIN:VEVENT\nSUMMARY:💾 Backup Export JSON\nDESCRIPTION:Sécurise tes données ChadTracker.\nRRULE:FREQ=WEEKLY;BYDAY=SU\nDTSTART;TZID=Europe/Paris:20240101T203000\nDURATION:PT5M\n${alarmBlock}\nEND:VEVENT\n`;
+    icsContent += `BEGIN:VEVENT\nSUMMARY:📵 Arrêt Téléphone\nDESCRIPTION:Mode Avion activé. Lecture ou dodo.\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR\nDTSTART;TZID=Europe/Paris:20240101T221500\nDURATION:PT30M\n${alarmBlock}\nEND:VEVENT\n`;
 
     DAYS_PLAN.forEach((day, index) => {
         if(day.type.includes('swim')) {
             let prevIndex = index - 1;
             if(prevIndex < 0) prevIndex = 6;
             const prevDayCode = daysICS[prevIndex];
-            icsContent += `BEGIN:VEVENT\nSUMMARY:🎒 Sac Piscine\nDESCRIPTION:N'oublie pas : Maillot, bonnet, lunettes pour demain !\nRRULE:FREQ=WEEKLY;BYDAY=${prevDayCode}\nDTSTART;TZID=Europe/Paris:20240101T220000\nDURATION:PT15M\nEND:VEVENT\n`;
+            icsContent += `BEGIN:VEVENT\nSUMMARY:🎒 Sac Piscine\nDESCRIPTION:N'oublie pas : Maillot, bonnet, lunettes pour demain !\nRRULE:FREQ=WEEKLY;BYDAY=${prevDayCode}\nDTSTART;TZID=Europe/Paris:20240101T220000\nDURATION:PT15M\n${alarmBlock}\nEND:VEVENT\n`;
         }
     });
 
@@ -316,7 +326,7 @@ function downloadCalendar() {
         if(day.type === 'rest') return;
         const dayCode = daysICS[index];
         const title = day.type.includes('swim') ? `🏊 ${day.name}` : `🏋️ ${day.name}`;
-        icsContent += `BEGIN:VEVENT\nSUMMARY:${title}\nDESCRIPTION:Focus et discipline.\nRRULE:FREQ=WEEKLY;BYDAY=${dayCode}\nDTSTART;TZID=Europe/Paris:20240101T180000\nDURATION:PT1H30M\nEND:VEVENT\n`;
+        icsContent += `BEGIN:VEVENT\nSUMMARY:${title}\nDESCRIPTION:Focus et discipline.\nRRULE:FREQ=WEEKLY;BYDAY=${dayCode}\nDTSTART;TZID=Europe/Paris:20240101T180000\nDURATION:PT1H30M\n${alarmBlock}\nEND:VEVENT\n`;
     });
 
     icsContent += "END:VCALENDAR";
@@ -324,14 +334,14 @@ function downloadCalendar() {
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
     const link = document.createElement('a');
     link.href = window.URL.createObjectURL(blob);
-    link.setAttribute('download', 'chad_planning_v5.ics');
+    link.setAttribute('download', 'chad_planning_v8_alarms.ics');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 }
 
 /* =========================================
-   WORKOUT LOGIC
+   WORKOUT LOGIC (SMART + 1RM + DELETE)
    ========================================= */
 function renderWorkoutView() {
     const container = document.getElementById('workout-container');
@@ -381,6 +391,39 @@ function selectGoal(goal) {
     }, 300);
 }
 
+// 1RM Calcul (Epley Formula)
+function calculateOneRM(kg, reps) {
+    if(!kg || !reps) return 0;
+    return Math.round(kg * (1 + reps/30));
+}
+
+function getSmartTarget(exo) {
+    const logs = state.workouts.filter(w => w.exo === exo);
+    if (logs.length === 0) return null;
+
+    const lastDate = logs[logs.length - 1].date.split('T')[0];
+    const sessionSets = logs.filter(w => w.date.startsWith(lastDate));
+
+    sessionSets.sort((a, b) => b.kg - a.kg || a.id - b.id);
+    return sessionSets[0]; 
+}
+
+function deleteLastSet(exo) {
+    if(!confirm("Supprimer la dernière série de " + exo + " ?")) return;
+
+    // Trouver le dernier log de cet exo
+    const logs = state.workouts.filter(w => w.exo === exo);
+    if(logs.length === 0) return;
+    
+    const lastLogId = logs[logs.length - 1].id;
+    
+    // Supprimer du state
+    state.workouts = state.workouts.filter(w => w.id !== lastLogId);
+    saveData();
+    showToast("Série supprimée 🗑️");
+    renderWorkoutView(); // Rafraîchir
+}
+
 function renderMuscleInterface(plan, container) {
     const goalBanner = document.createElement('div');
     goalBanner.className = "mb-4 bg-primary/10 border border-primary/50 text-primary px-4 py-3 rounded-xl text-center font-bold uppercase text-sm shadow-sm";
@@ -390,28 +433,32 @@ function renderMuscleInterface(plan, container) {
     const todayStr = new Date().toISOString().split('T')[0];
 
     plan.exos.forEach((exo, idx) => {
-        const history = state.workouts.filter(w => w.exo === exo).slice(-5).reverse();
-        const lastSet = history[0];
+        const bestSet = getSmartTarget(exo); 
         const todaySets = state.workouts.filter(w => w.exo === exo && w.date.startsWith(todayStr)).length;
 
         let targetText = "Nouveau";
         let defaultKg = "";
         let defaultReps = "";
         let lastPerfText = "Historique vide";
+        let oneRMText = "";
 
-        if (lastSet) {
-            defaultKg = lastSet.kg;
-            defaultReps = lastSet.reps;
-            lastPerfText = `Dernier : ${lastSet.kg}kg x ${lastSet.reps}`;
+        if (bestSet) {
+            defaultKg = bestSet.kg;
+            defaultReps = bestSet.reps;
+            lastPerfText = `Ref : ${bestSet.kg}kg x ${bestSet.reps}`;
+            
+            // Calcul du 1RM
+            const rm = calculateOneRM(bestSet.kg, bestSet.reps);
+            oneRMText = `<span class="text-xs text-gray-500 ml-2">(1RM: ${rm}kg)</span>`;
 
             if (currentSessionGoal === "+1 Rep") {
-                targetText = `Cible : ${lastSet.kg}kg x ${Number(lastSet.reps) + 1}`;
-                defaultReps = Number(lastSet.reps) + 1;
+                targetText = `Cible : ${bestSet.kg}kg x ${Number(bestSet.reps) + 1}`;
+                defaultReps = Number(bestSet.reps) + 1;
             } else if (currentSessionGoal === "+2.5 kg") {
-                targetText = `Cible : ${Number(lastSet.kg) + 2.5}kg x ${lastSet.reps}`;
-                defaultKg = Number(lastSet.kg) + 2.5;
+                targetText = `Cible : ${Number(bestSet.kg) + 2.5}kg x ${bestSet.reps}`;
+                defaultKg = Number(bestSet.kg) + 2.5;
             } else {
-                targetText = `Maintien : ${lastSet.kg}kg x ${lastSet.reps}`;
+                targetText = `Maintien : ${bestSet.kg}kg x ${bestSet.reps}`;
             }
         }
 
@@ -419,6 +466,11 @@ function renderMuscleInterface(plan, container) {
         const borderColor = todaySets >= 3 ? "border-accent" : "border-gray-800";
         card.className = `glass p-4 rounded-2xl border ${borderColor} transition-colors duration-300`;
         
+        // Bouton supprimer (affiché seulement si des sets ont été faits aujourd'hui)
+        const deleteBtn = todaySets > 0 
+            ? `<button onclick="deleteLastSet('${exo}')" class="text-red-400 text-xs underline ml-4">Supprimer dernier</button>` 
+            : '';
+
         card.innerHTML = `
             <div class="flex justify-between items-center mb-1">
                 <h3 class="font-bold text-white text-lg">${exo}</h3>
@@ -432,8 +484,8 @@ function renderMuscleInterface(plan, container) {
                 <span class="text-xs text-accent font-mono font-bold">${targetText}</span>
             </div>
             
-            <div class="text-[10px] text-gray-500 mb-3 text-right italic border-b border-gray-800 pb-1">
-                ${lastPerfText}
+            <div class="text-[10px] text-gray-500 mb-3 text-right italic border-b border-gray-800 pb-1 flex justify-end items-center">
+                ${lastPerfText} ${oneRMText}
             </div>
 
             <div class="flex items-center gap-2 mb-2">
@@ -457,6 +509,10 @@ function renderMuscleInterface(plan, container) {
             <button onclick="logSet('${exo}', 'kg-${idx}', 'reps-${idx}')" class="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-900/40 active:scale-95 transition-transform">
                 VALIDER SET ${todaySets + 1}
             </button>
+            
+            <div class="text-right mt-2 h-4">
+                ${deleteBtn}
+            </div>
         `;
         container.appendChild(card);
     });
@@ -485,7 +541,10 @@ function logSet(exo, kgId, repsId) {
     });
     saveData();
     showToast(`Set validé: ${kg}kg x ${reps}`);
+    
+    currentExoForTimer = exo;
     openTimer();
+    
     renderDashboard(); 
     renderWorkoutView();
 }
@@ -565,13 +624,23 @@ function logSwim(type) {
 }
 
 /* =========================================
-   TIMER SYSTEM
+   TIMER SYSTEM (SMART TIMER UPDATE)
    ========================================= */
 function openTimer() {
     const modal = document.getElementById('timer-modal');
     modal.classList.remove('translate-y-full');
     
-    timerSeconds = parseInt(state.settings.timerDefault);
+    // --- SMART TIMER LOGIC ---
+    let defaultTime = parseInt(state.settings.timerDefault);
+    
+    const isHeavy = HEAVY_COMPOUND_LIFTS.some(heavyName => currentExoForTimer.includes(heavyName));
+    
+    if (isHeavy) {
+        timerSeconds = Math.max(120, defaultTime);
+    } else {
+        timerSeconds = defaultTime;
+    }
+
     updateTimerDisplay();
     
     if (timerInterval) clearInterval(timerInterval);
