@@ -51,7 +51,33 @@ const DAYS_PLAN = [
     }
 ];
 
-// Liste des "Gros Exos" qui nécessitent plus de repos (Smart Timer)
+// === SYSTÈME DE TROPHÉES 2026 ===
+const ACHIEVEMENTS = [
+    // --- PILIER DISCIPLINE (STREAK) ---
+    { id: 'streak_7', icon: '🔥', title: 'Hell Week', desc: '7 jours sans faute' },
+    { id: 'streak_30', icon: '🧘', title: 'Monk Mode', desc: '1 Mois de discipline' },
+    { id: 'streak_90', icon: '⚔️', title: 'The Grind', desc: '3 Mois (Transformation)' },
+    { id: 'streak_180', icon: '🤖', title: 'Unstoppable', desc: '6 Mois de machine' },
+    { id: 'streak_365', icon: '⚡', title: 'ZEUS', desc: '1 AN complet. Légendaire.' },
+
+    // --- PILIER FORCE (SMITH INCLINÉ) ---
+    { id: 'smith_80', icon: '🦍', title: 'Silverback', desc: 'Smith: 80kg (Respect)' },
+    { id: 'smith_100', icon: '👑', title: 'Golden God', desc: 'Smith: 100kg (2 Plates)' },
+    { id: 'smith_120', icon: '🦖', title: 'King Kong', desc: 'Smith: 120kg (Elite)' },
+    { id: 'smith_140', icon: '🗿', title: 'GIGACHAD', desc: 'Smith: 140kg (Mutant)' },
+
+    // --- PILIER VOLUME (TONNAGE TOTAL) ---
+    { id: 'vol_100t', icon: '🏗️', title: 'The Mover', desc: '100 Tonnes soulevées' },
+    { id: 'vol_500t', icon: '🚂', title: 'Locomotive', desc: '500 Tonnes soulevées' },
+    { id: 'vol_1m', icon: '💎', title: 'Millionaire', desc: '1 Million de KG (1000T)' },
+    { id: 'vol_2.5m', icon: '🌍', title: 'ATLAS', desc: '2500 Tonnes (World Class)' },
+
+    // --- PILIER HYBRIDE (NAGE) ---
+    { id: 'swim_34k', icon: '🇬🇧', title: 'La Manche', desc: '34km cumulés' },
+    { id: 'swim_100k', icon: '🌊', title: 'Open Water', desc: '100km cumulés' },
+    { id: 'swim_300k', icon: '🔱', title: 'POSEIDON', desc: '300km cumulés' }
+];
+
 const HEAVY_COMPOUND_LIFTS = [
     "Tractions", "Tractions (Lestées)", 
     "Presse à cuisses", "Développé Épaules", 
@@ -78,7 +104,8 @@ const QUOTES = [
 let state = {
     workouts: [], 
     swims: [],    
-    weights: [],  
+    weights: [],
+    badges: [], 
     nutrition: {
         water: 0,
         lastReset: null
@@ -95,6 +122,7 @@ let timerSeconds = 0;
 let chartInstance = null;
 let currentSessionGoal = ""; 
 let currentExoForTimer = ""; 
+let isLogging = false;
 
 /* =========================================
    INIT
@@ -112,6 +140,7 @@ function loadData() {
         state = JSON.parse(s);
         if(!state.nutrition) state.nutrition = { water: 0, lastReset: new Date().toDateString() };
         if(!state.settings) state.settings = { timerDefault: 90, notifications: false, goalText: "" };
+        if(!state.badges) state.badges = [];
     }
 }
 
@@ -160,6 +189,57 @@ function initRouter() {
     const options = { weekday: 'long', day: 'numeric', month: 'long' };
     const dateStr = new Date().toLocaleDateString('fr-FR', options);
     document.getElementById('header-date').textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+}
+
+/* =========================================
+   GAMIFICATION ENGINE (LOGIC 2026)
+   ========================================= */
+function checkGamification() {
+    let newBadge = null;
+    
+    // 1. STREAK
+    const streak = calculateStreak();
+    if (streak >= 7 && !state.badges.includes('streak_7')) newBadge = 'streak_7';
+    if (streak >= 30 && !state.badges.includes('streak_30')) newBadge = 'streak_30';
+    if (streak >= 90 && !state.badges.includes('streak_90')) newBadge = 'streak_90';
+    if (streak >= 180 && !state.badges.includes('streak_180')) newBadge = 'streak_180';
+    if (streak >= 365 && !state.badges.includes('streak_365')) newBadge = 'streak_365';
+
+    // 2. FORCE (Smith Incliné)
+    const smithLogs = state.workouts.filter(w => w.exo === "Smith Incliné");
+    const maxSmith = smithLogs.reduce((max, w) => Math.max(max, w.kg), 0);
+    
+    if (maxSmith >= 80 && !state.badges.includes('smith_80')) newBadge = 'smith_80';
+    if (maxSmith >= 100 && !state.badges.includes('smith_100')) newBadge = 'smith_100';
+    if (maxSmith >= 120 && !state.badges.includes('smith_120')) newBadge = 'smith_120';
+    if (maxSmith >= 140 && !state.badges.includes('smith_140')) newBadge = 'smith_140';
+
+    // 3. VOLUME TOTAL (TONNES)
+    // On calcule tout l'historique
+    const totalVolumeKg = state.workouts.reduce((acc, w) => acc + (w.kg * w.reps), 0);
+    const totalTons = totalVolumeKg / 1000;
+
+    if (totalTons >= 100 && !state.badges.includes('vol_100t')) newBadge = 'vol_100t';
+    if (totalTons >= 500 && !state.badges.includes('vol_500t')) newBadge = 'vol_500t';
+    if (totalTons >= 1000 && !state.badges.includes('vol_1m')) newBadge = 'vol_1m';
+    if (totalTons >= 2500 && !state.badges.includes('vol_2.5m')) newBadge = 'vol_2.5m';
+
+    // 4. DISTANCE NAGE TOTAL (KM)
+    const totalSwimMeters = state.swims.reduce((acc, s) => acc + s.dist, 0);
+    const totalSwimKm = totalSwimMeters / 1000;
+
+    if (totalSwimKm >= 34 && !state.badges.includes('swim_34k')) newBadge = 'swim_34k';
+    if (totalSwimKm >= 100 && !state.badges.includes('swim_100k')) newBadge = 'swim_100k';
+    if (totalSwimKm >= 300 && !state.badges.includes('swim_300k')) newBadge = 'swim_300k';
+
+    // UNLOCK
+    if (newBadge) {
+        state.badges.push(newBadge);
+        saveData();
+        const badgeInfo = ACHIEVEMENTS.find(a => a.id === newBadge);
+        showToast(`🏆 DÉBLOQUÉ : ${badgeInfo.title} !`);
+        if ('vibrate' in navigator) navigator.vibrate([100, 50, 100, 50, 100, 50, 300]);
+    }
 }
 
 /* =========================================
@@ -234,19 +314,12 @@ function calculateStreak() {
     if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) return 0;
 
     let streak = 1;
-    let currentDate = new Date(uniqueDates[0]);
-
     for (let i = 1; i < uniqueDates.length; i++) {
-        const prevDate = new Date(uniqueDates[i]);
-        const diffTime = Math.abs(currentDate - prevDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-
-        if (diffDays === 1) {
-            streak++;
-            currentDate = prevDate;
-        } else {
-            break;
-        }
+        const curr = new Date(uniqueDates[i-1]);
+        const prev = new Date(uniqueDates[i]);
+        const diffDays = Math.ceil(Math.abs(curr - prev) / (1000 * 60 * 60 * 24)); 
+        if (diffDays === 1) streak++;
+        else break;
     }
     return streak;
 }
@@ -291,16 +364,13 @@ function addWater(amount) {
    ========================================= */
 function downloadCalendar() {
     const alarmBlock = `BEGIN:VALARM\nTRIGGER:-PT0M\nDESCRIPTION:Rappel ChadTracker\nACTION:DISPLAY\nEND:VALARM`;
-
     let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ChadTracker//NONSGML v1.0//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
-
     const daysICS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
     const waterTimes = ["080000", "093000", "110000", "123000", "140000", "153000", "170000", "183000", "200000", "213000"];
     
     waterTimes.forEach(t => {
         icsContent += `BEGIN:VEVENT\nSUMMARY:💧 Hydratation\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T${t}\nDURATION:PT5M\n${alarmBlock}\nEND:VEVENT\n`;
     });
-
     icsContent += `BEGIN:VEVENT\nSUMMARY:🍎 Collation Matin\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T103000\nDURATION:PT15M\n${alarmBlock}\nEND:VEVENT\n`;
     icsContent += `BEGIN:VEVENT\nSUMMARY:🍌 Collation Aprems\nRRULE:FREQ=DAILY\nDTSTART;TZID=Europe/Paris:20240101T170000\nDURATION:PT15M\n${alarmBlock}\nEND:VEVENT\n`;
 
@@ -308,7 +378,6 @@ function downloadCalendar() {
         const dayCode = daysICS[index];
         icsContent += `BEGIN:VEVENT\nSUMMARY:📅 Auj: ${day.name}\nRRULE:FREQ=WEEKLY;BYDAY=${dayCode}\nDTSTART;TZID=Europe/Paris:20240101T070000\nDURATION:PT10M\n${alarmBlock}\nEND:VEVENT\n`;
     });
-
     icsContent += `BEGIN:VEVENT\nSUMMARY:🔪 Batch Cooking\nDESCRIPTION:Prépare tes repas de la semaine !\nRRULE:FREQ=WEEKLY;BYDAY=SU\nDTSTART;TZID=Europe/Paris:20240101T170000\nDURATION:PT2H\n${alarmBlock}\nEND:VEVENT\n`;
     icsContent += `BEGIN:VEVENT\nSUMMARY:💾 Backup Export JSON\nDESCRIPTION:Sécurise tes données ChadTracker.\nRRULE:FREQ=WEEKLY;BYDAY=SU\nDTSTART;TZID=Europe/Paris:20240101T203000\nDURATION:PT5M\n${alarmBlock}\nEND:VEVENT\n`;
     icsContent += `BEGIN:VEVENT\nSUMMARY:📵 Arrêt Téléphone\nDESCRIPTION:Mode Avion activé. Lecture ou dodo.\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR\nDTSTART;TZID=Europe/Paris:20240101T221500\nDURATION:PT30M\n${alarmBlock}\nEND:VEVENT\n`;
@@ -321,14 +390,12 @@ function downloadCalendar() {
             icsContent += `BEGIN:VEVENT\nSUMMARY:🎒 Sac Piscine\nDESCRIPTION:N'oublie pas : Maillot, bonnet, lunettes pour demain !\nRRULE:FREQ=WEEKLY;BYDAY=${prevDayCode}\nDTSTART;TZID=Europe/Paris:20240101T220000\nDURATION:PT15M\n${alarmBlock}\nEND:VEVENT\n`;
         }
     });
-
     DAYS_PLAN.forEach((day, index) => {
         if(day.type === 'rest') return;
         const dayCode = daysICS[index];
         const title = day.type.includes('swim') ? `🏊 ${day.name}` : `🏋️ ${day.name}`;
         icsContent += `BEGIN:VEVENT\nSUMMARY:${title}\nDESCRIPTION:Focus et discipline.\nRRULE:FREQ=WEEKLY;BYDAY=${dayCode}\nDTSTART;TZID=Europe/Paris:20240101T180000\nDURATION:PT1H30M\n${alarmBlock}\nEND:VEVENT\n`;
     });
-
     icsContent += "END:VCALENDAR";
 
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
@@ -341,7 +408,7 @@ function downloadCalendar() {
 }
 
 /* =========================================
-   WORKOUT LOGIC (SMART + 1RM + DELETE)
+   WORKOUT LOGIC
    ========================================= */
 function renderWorkoutView() {
     const container = document.getElementById('workout-container');
@@ -359,7 +426,6 @@ function renderWorkoutView() {
     if (!plan.type.includes('swim') && !currentSessionGoal) {
         const modal = document.getElementById('goal-modal');
         const content = document.getElementById('goal-modal-content');
-        
         modal.classList.remove('hidden');
         setTimeout(() => {
             modal.classList.remove('opacity-0');
@@ -380,18 +446,15 @@ function selectGoal(goal) {
     currentSessionGoal = goal;
     const modal = document.getElementById('goal-modal');
     const content = document.getElementById('goal-modal-content');
-    
     modal.classList.add('opacity-0'); 
     content.classList.remove('scale-100');
     content.classList.add('scale-95');
-    
     setTimeout(() => {
         modal.classList.add('hidden');
         renderWorkoutView(); 
     }, 300);
 }
 
-// 1RM Calcul (Epley Formula)
 function calculateOneRM(kg, reps) {
     if(!kg || !reps) return 0;
     return Math.round(kg * (1 + reps/30));
@@ -400,28 +463,21 @@ function calculateOneRM(kg, reps) {
 function getSmartTarget(exo) {
     const logs = state.workouts.filter(w => w.exo === exo);
     if (logs.length === 0) return null;
-
     const lastDate = logs[logs.length - 1].date.split('T')[0];
     const sessionSets = logs.filter(w => w.date.startsWith(lastDate));
-
     sessionSets.sort((a, b) => b.kg - a.kg || a.id - b.id);
     return sessionSets[0]; 
 }
 
 function deleteLastSet(exo) {
     if(!confirm("Supprimer la dernière série de " + exo + " ?")) return;
-
-    // Trouver le dernier log de cet exo
     const logs = state.workouts.filter(w => w.exo === exo);
     if(logs.length === 0) return;
-    
     const lastLogId = logs[logs.length - 1].id;
-    
-    // Supprimer du state
     state.workouts = state.workouts.filter(w => w.id !== lastLogId);
     saveData();
     showToast("Série supprimée 🗑️");
-    renderWorkoutView(); // Rafraîchir
+    renderWorkoutView(); 
 }
 
 function renderMuscleInterface(plan, container) {
@@ -446,11 +502,8 @@ function renderMuscleInterface(plan, container) {
             defaultKg = bestSet.kg;
             defaultReps = bestSet.reps;
             lastPerfText = `Ref : ${bestSet.kg}kg x ${bestSet.reps}`;
-            
-            // Calcul du 1RM
             const rm = calculateOneRM(bestSet.kg, bestSet.reps);
             oneRMText = `<span class="text-xs text-gray-500 ml-2">(1RM: ${rm}kg)</span>`;
-
             if (currentSessionGoal === "+1 Rep") {
                 targetText = `Cible : ${bestSet.kg}kg x ${Number(bestSet.reps) + 1}`;
                 defaultReps = Number(bestSet.reps) + 1;
@@ -465,29 +518,20 @@ function renderMuscleInterface(plan, container) {
         const card = document.createElement('div');
         const borderColor = todaySets >= 3 ? "border-accent" : "border-gray-800";
         card.className = `glass p-4 rounded-2xl border ${borderColor} transition-colors duration-300`;
-        
-        // Bouton supprimer (affiché seulement si des sets ont été faits aujourd'hui)
-        const deleteBtn = todaySets > 0 
-            ? `<button onclick="deleteLastSet('${exo}')" class="text-red-400 text-xs underline ml-4">Supprimer dernier</button>` 
-            : '';
+        const deleteBtn = todaySets > 0 ? `<button onclick="deleteLastSet('${exo}')" class="text-red-400 text-xs underline ml-4">Supprimer dernier</button>` : '';
 
         card.innerHTML = `
             <div class="flex justify-between items-center mb-1">
                 <h3 class="font-bold text-white text-lg">${exo}</h3>
                 <button onclick="showHistory('${exo}')" class="text-primary text-xs">Historique</button>
             </div>
-            
             <div class="flex justify-between items-center mb-1">
-                <span class="text-xs font-bold ${todaySets > 0 ? 'text-accent' : 'text-gray-600'}">
-                    Séries faites : ${todaySets}
-                </span>
+                <span class="text-xs font-bold ${todaySets > 0 ? 'text-accent' : 'text-gray-600'}">Séries faites : ${todaySets}</span>
                 <span class="text-xs text-accent font-mono font-bold">${targetText}</span>
             </div>
-            
             <div class="text-[10px] text-gray-500 mb-3 text-right italic border-b border-gray-800 pb-1 flex justify-end items-center">
                 ${lastPerfText} ${oneRMText}
             </div>
-
             <div class="flex items-center gap-2 mb-2">
                 <button class="bg-gray-700 w-8 h-8 rounded text-white active:bg-gray-600" onclick="adjustInput('kg-${idx}', -2.5)">-</button>
                 <div class="flex-1 relative">
@@ -496,7 +540,6 @@ function renderMuscleInterface(plan, container) {
                 </div>
                 <button class="bg-gray-700 w-8 h-8 rounded text-white active:bg-gray-600" onclick="adjustInput('kg-${idx}', 2.5)">+</button>
             </div>
-
             <div class="flex items-center gap-2 mb-4">
                 <button class="bg-gray-700 w-8 h-8 rounded text-white active:bg-gray-600" onclick="adjustInput('reps-${idx}', -1)">-</button>
                 <div class="flex-1 relative">
@@ -505,14 +548,10 @@ function renderMuscleInterface(plan, container) {
                 </div>
                 <button class="bg-gray-700 w-8 h-8 rounded text-white active:bg-gray-600" onclick="adjustInput('reps-${idx}', 1)">+</button>
             </div>
-
             <button onclick="logSet('${exo}', 'kg-${idx}', 'reps-${idx}')" class="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-900/40 active:scale-95 transition-transform">
                 VALIDER SET ${todaySets + 1}
             </button>
-            
-            <div class="text-right mt-2 h-4">
-                ${deleteBtn}
-            </div>
+            <div class="text-right mt-2 h-4">${deleteBtn}</div>
         `;
         container.appendChild(card);
     });
@@ -527,10 +566,24 @@ function adjustInput(id, delta) {
 }
 
 function logSet(exo, kgId, repsId) {
+    if (isLogging) return; 
+    isLogging = true;
+
     const kg = parseFloat(document.getElementById(kgId).value);
     const reps = parseFloat(document.getElementById(repsId).value);
 
-    if (!kg || !reps) return showToast("Valeurs manquantes", true);
+    if (!kg || !reps) {
+        isLogging = false;
+        return showToast("Valeurs manquantes", true);
+    }
+
+    const bestSet = getSmartTarget(exo);
+    let isPR = false;
+    if (bestSet) {
+        const currentVolume = kg * reps;
+        const bestVolume = bestSet.kg * bestSet.reps;
+        isPR = currentVolume > bestVolume;
+    }
 
     state.workouts.push({
         id: Date.now(),
@@ -539,14 +592,20 @@ function logSet(exo, kgId, repsId) {
         kg: kg,
         reps: reps
     });
+    
+    checkGamification();
+    
     saveData();
-    showToast(`Set validé: ${kg}kg x ${reps}`);
+
+    const emoji = isPR ? "🔥 PR ÉCRASÉ!" : "✅ Set validé";
+    showToast(`${emoji} ${kg}kg x ${reps}`);
     
     currentExoForTimer = exo;
     openTimer();
-    
     renderDashboard(); 
     renderWorkoutView();
+
+    setTimeout(() => isLogging = false, 500); 
 }
 
 function showHistory(exo) {
@@ -618,40 +677,54 @@ function logSwim(type) {
         time: totalSeconds,
         pace: pace
     });
+    
+    checkGamification();
+    
     saveData();
     showToast(`Natation validée! Allure: ${formatTime(pace)}/100m`);
     router('home');
 }
 
 /* =========================================
-   TIMER SYSTEM (SMART TIMER UPDATE)
+   TIMER SYSTEM
    ========================================= */
 function openTimer() {
     const modal = document.getElementById('timer-modal');
     modal.classList.remove('translate-y-full');
-    
-    // --- SMART TIMER LOGIC ---
     let defaultTime = parseInt(state.settings.timerDefault);
-    
     const isHeavy = HEAVY_COMPOUND_LIFTS.some(heavyName => currentExoForTimer.includes(heavyName));
-    
     if (isHeavy) {
         timerSeconds = Math.max(120, defaultTime);
     } else {
         timerSeconds = defaultTime;
     }
-
     updateTimerDisplay();
-    
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
         timerSeconds--;
         updateTimerDisplay();
         if (timerSeconds <= 0) {
             clearInterval(timerInterval);
-            navigator.vibrate([200, 100, 200]);
+            triggerTimerAlert(); 
         }
     }, 1000);
+}
+
+function triggerTimerAlert() {
+    if ('vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200, 100, 200]);
+    }
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 800; 
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+    } catch(e) {}
 }
 
 function closeTimer() {
@@ -680,12 +753,84 @@ function formatTime(totalSec) {
 }
 
 /* =========================================
-   STATS
+   CALENDAR & STATS
    ========================================= */
+function renderCalendar() {
+    const container = document.getElementById('calendar-grid');
+    if (!container) return;
+    container.innerHTML = '';
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 41);
+    
+    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(day => {
+        const header = document.createElement('div');
+        header.className = 'text-xs text-gray-500 font-bold py-2';
+        header.textContent = day;
+        container.appendChild(header);
+    });
+
+    const workoutDates = new Set(state.workouts.map(w => w.date.split('T')[0]));
+    const swimDates = new Set(state.swims.map(s => s.date.split('T')[0]));
+    
+    for (let i = 0; i < 42; i++) {
+        const currentDate = new Date(startDate);
+        currentDate.setDate(startDate.getDate() + i);
+        const dateStr = currentDate.toISOString().split('T')[0];
+        
+        const cell = document.createElement('div');
+        cell.className = 'aspect-square rounded-lg flex items-center justify-center text-xs font-mono border border-gray-800/50';
+        
+        const hasWorkout = workoutDates.has(dateStr);
+        const hasSwim = swimDates.has(dateStr);
+        const isToday = (dateStr === today.toISOString().split('T')[0]);
+        
+        if (hasWorkout && hasSwim) {
+            cell.className += ' bg-gradient-to-br from-primary to-accent text-white font-bold';
+        } else if (hasWorkout) {
+            cell.className += ' bg-primary text-white';
+        } else if (hasSwim) {
+            cell.className += ' bg-accent text-black';
+        } else {
+            cell.className += ' bg-surface/50 text-gray-600';
+        }
+        
+        if (isToday) cell.className += ' border-2 border-white';
+        
+        cell.textContent = currentDate.getDate();
+        container.appendChild(cell);
+    }
+}
+
 function renderStats() {
     const select = document.getElementById('stats-exo-select');
     select.innerHTML = "";
     
+    let trophySection = document.getElementById('trophy-container');
+    if (!trophySection) {
+        const statsView = document.getElementById('view-stats');
+        const trophyDiv = document.createElement('div');
+        trophyDiv.className = "mb-6 animate-fade-in";
+        trophyDiv.innerHTML = `<h2 class="text-2xl font-bold text-white mb-4">Salle des Trophées 🏆</h2><div id="trophy-grid" class="grid grid-cols-3 gap-3"></div>`;
+        statsView.insertBefore(trophyDiv, statsView.firstChild);
+        trophySection = document.getElementById('trophy-grid');
+    }
+
+    if(trophySection) {
+        trophySection.innerHTML = '';
+        ACHIEVEMENTS.forEach(ach => {
+            const isUnlocked = state.badges.includes(ach.id);
+            const el = document.createElement('div');
+            el.className = `glass p-3 rounded-xl text-center border ${isUnlocked ? 'border-yellow-500/50 bg-yellow-900/10' : 'border-gray-800 opacity-50'}`;
+            el.innerHTML = `
+                <div class="text-2xl mb-1">${isUnlocked ? ach.icon : '🔒'}</div>
+                <div class="text-[10px] font-bold text-white uppercase">${ach.title}</div>
+                <div class="text-[8px] text-gray-400">${ach.desc}</div>
+            `;
+            trophySection.appendChild(el);
+        });
+    }
+
     let allExos = new Set();
     DAYS_PLAN.forEach(day => {
         if(day.exos) day.exos.forEach(e => allExos.add(e));
@@ -820,11 +965,10 @@ function logWeight() {
 }
 
 /* =========================================
-   SETTINGS
+   SETTINGS & HELPERS
    ========================================= */
 function renderSettings() {
     document.getElementById('setting-timer').value = state.settings.timerDefault;
-    
     document.getElementById('setting-timer').onchange = (e) => {
         state.settings.timerDefault = parseInt(e.target.value);
         saveData();
@@ -864,9 +1008,6 @@ function resetApp() {
     }
 }
 
-/* =========================================
-   HELPERS
-   ========================================= */
 function showToast(msg, error=false) {
     const t = document.getElementById('toast');
     t.innerText = msg;
