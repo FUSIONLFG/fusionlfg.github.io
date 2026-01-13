@@ -53,26 +53,22 @@ const DAYS_PLAN = [
 
 // === SYSTÈME DE TROPHÉES 2026 ===
 const ACHIEVEMENTS = [
-    // --- PILIER DISCIPLINE (STREAK) ---
     { id: 'streak_7', icon: '🔥', title: 'Hell Week', desc: '7 jours sans faute' },
     { id: 'streak_30', icon: '🧘', title: 'Monk Mode', desc: '1 Mois de discipline' },
     { id: 'streak_90', icon: '⚔️', title: 'The Grind', desc: '3 Mois (Transformation)' },
     { id: 'streak_180', icon: '🤖', title: 'Unstoppable', desc: '6 Mois de machine' },
     { id: 'streak_365', icon: '⚡', title: 'ZEUS', desc: '1 AN complet. Légendaire.' },
 
-    // --- PILIER FORCE (SMITH INCLINÉ) ---
     { id: 'smith_80', icon: '🦍', title: 'Silverback', desc: 'Smith: 80kg (Respect)' },
     { id: 'smith_100', icon: '👑', title: 'Golden God', desc: 'Smith: 100kg (2 Plates)' },
     { id: 'smith_120', icon: '🦖', title: 'King Kong', desc: 'Smith: 120kg (Elite)' },
     { id: 'smith_140', icon: '🗿', title: 'GIGACHAD', desc: 'Smith: 140kg (Mutant)' },
 
-    // --- PILIER VOLUME (TONNAGE TOTAL) ---
     { id: 'vol_100t', icon: '🏗️', title: 'The Mover', desc: '100 Tonnes soulevées' },
     { id: 'vol_500t', icon: '🚂', title: 'Locomotive', desc: '500 Tonnes soulevées' },
     { id: 'vol_1m', icon: '💎', title: 'Millionaire', desc: '1 Million de KG (1000T)' },
     { id: 'vol_2.5m', icon: '🌍', title: 'ATLAS', desc: '2500 Tonnes (World Class)' },
 
-    // --- PILIER HYBRIDE (NAGE) ---
     { id: 'swim_34k', icon: '🇬🇧', title: 'La Manche', desc: '34km cumulés' },
     { id: 'swim_100k', icon: '🌊', title: 'Open Water', desc: '100km cumulés' },
     { id: 'swim_300k', icon: '🔱', title: 'POSEIDON', desc: '300km cumulés' }
@@ -114,12 +110,13 @@ let state = {
         timerDefault: 90,
         notifications: false,
         goalText: "76 kg sec",
-        sound: true // Nouveau paramètre Son
+        sound: true 
     }
 };
 
 let timerInterval;
 let timerSeconds = 0;
+let sessionStartTime = null; 
 let chartInstance = null;
 let currentSessionGoal = ""; 
 let currentExoForTimer = ""; 
@@ -142,7 +139,7 @@ function loadData() {
         state = JSON.parse(s);
         if(!state.nutrition) state.nutrition = { water: 0, lastReset: new Date().toDateString() };
         if(!state.settings) state.settings = { timerDefault: 90, notifications: false, goalText: "", sound: true };
-        if(state.settings.sound === undefined) state.settings.sound = true; // Migration V14
+        if(state.settings.sound === undefined) state.settings.sound = true; 
         if(!state.badges) state.badges = [];
     }
 }
@@ -167,23 +164,15 @@ function checkDailyReset() {
 function router(viewName) {
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
     
-    // Fermer les modales
-    const goalModal = document.getElementById('goal-modal');
-    if (goalModal) {
-        goalModal.classList.add('hidden');
-        goalModal.classList.add('opacity-0'); 
-    }
-    const dayModal = document.getElementById('day-selector-modal');
-    if (dayModal) {
-        dayModal.classList.add('hidden');
-        dayModal.classList.add('opacity-0');
-    }
+    ['goal-modal', 'day-selector-modal', 'plate-modal'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) { el.classList.add('hidden'); el.classList.add('opacity-0'); }
+    });
 
     document.getElementById(`view-${viewName}`).classList.remove('hidden');
     
-    if (viewName !== 'workout') {
-        // On garde forcedDayIndex pour la navigation fluide
-    } else {
+    if (viewName === 'workout') {
+        if (!sessionStartTime) sessionStartTime = Date.now();
         renderWorkoutView();
     }
 
@@ -204,7 +193,7 @@ function initRouter() {
 }
 
 /* =========================================
-   GAMIFICATION ENGINE
+   GAMIFICATION
    ========================================= */
 function checkGamification() {
     let newBadge = null;
@@ -241,7 +230,6 @@ function checkGamification() {
         saveData();
         const badgeInfo = ACHIEVEMENTS.find(a => a.id === newBadge);
         showToast(`🏆 DÉBLOQUÉ : ${badgeInfo.title} !`);
-        // Vibre seulement si le son est activé
         if (state.settings.sound && 'vibrate' in navigator) navigator.vibrate([100, 50, 100, 50, 100, 50, 300]);
     }
 }
@@ -413,7 +401,7 @@ function downloadCalendar() {
 }
 
 /* =========================================
-   WORKOUT LOGIC & OVERRIDE
+   WORKOUT LOGIC & PLATE MATH (SMART LOCK V16)
    ========================================= */
 function renderWorkoutView() {
     const container = document.getElementById('workout-container');
@@ -421,14 +409,23 @@ function renderWorkoutView() {
     
     const dayIndex = forcedDayIndex !== null ? forcedDayIndex : new Date().getDay();
     const plan = DAYS_PLAN[dayIndex];
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // SÉCURITÉ : Vérifier si des logs existent pour CE plan AUJOURD'HUI
+    let hasLogs = false;
+    if (plan.type.includes('swim')) {
+         hasLogs = state.swims.some(s => s.date.startsWith(todayStr) && s.type === plan.type);
+    } else if (plan.exos) {
+         hasLogs = state.workouts.some(w => w.date.startsWith(todayStr) && plan.exos.includes(w.exo));
+    }
+
+    // Si on a commencé (hasLogs), on cache le bouton "Changer"
+    const switchBtn = hasLogs 
+        ? `` 
+        : `<button onclick="openDaySelector()" class="ml-2 bg-gray-800 hover:bg-gray-700 text-xs text-accent px-2 py-1 rounded-lg border border-gray-700 align-middle">🔄</button>`;
     
     const titleHeader = document.getElementById('workout-title');
-    titleHeader.innerHTML = `
-        ${plan.name} 
-        <button onclick="openDaySelector()" class="ml-2 bg-gray-800 hover:bg-gray-700 text-xs text-accent px-2 py-1 rounded-lg border border-gray-700 align-middle">
-            🔄 Changer
-        </button>
-    `;
+    titleHeader.innerHTML = `${plan.name} ${switchBtn}`;
 
     if (plan.type === 'rest') {
         container.innerHTML = `<div class="text-center py-10 text-gray-400">Repos aujourd'hui. Profite pour faire du meal prep. 🥦</div>`;
@@ -452,6 +449,71 @@ function renderWorkoutView() {
     } else {
         renderMuscleInterface(plan, container);
     }
+
+    const finishBtn = document.createElement('div');
+    finishBtn.className = "mt-8 pb-8";
+    finishBtn.innerHTML = `
+        <button onclick="finishSession()" class="w-full bg-surface border-2 border-accent/20 hover:bg-accent/10 text-accent font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95">
+            🏁 TERMINER LA SÉANCE
+        </button>
+    `;
+    container.appendChild(finishBtn);
+}
+
+// Fonction Fin de Séance (AVEC RESET)
+function finishSession() {
+    const duration = sessionStartTime ? Math.floor((Date.now() - sessionStartTime) / 60000) : 0;
+    const hour = Math.floor(duration / 60);
+    const min = duration % 60;
+    const timeStr = hour > 0 ? `${hour}h${min}` : `${min} min`;
+    
+    sessionStartTime = null; 
+    forcedDayIndex = null; // C'EST ICI LE SECRET : On reset le choix forcé
+    
+    router('home');
+    showToast(`Séance terminée en ${timeStr} ! Bien joué 💪`);
+    if (state.settings.sound && 'vibrate' in navigator) navigator.vibrate([100, 50, 100, 50, 400]);
+}
+
+function openPlateCalc() {
+    const modal = document.getElementById('plate-modal');
+    modal.classList.remove('hidden');
+    setTimeout(() => modal.classList.remove('opacity-0'), 10);
+}
+
+function calculatePlates() {
+    const target = parseFloat(document.getElementById('plate-target').value);
+    const resultDiv = document.getElementById('plate-result');
+    if(!target || target < 20) {
+        resultDiv.innerHTML = "<span class='text-gray-500'>Entre un poids > 20kg</span>";
+        return;
+    }
+    
+    let weight = (target - 20) / 2;
+    let plates = [];
+    const available = [20, 10, 5, 2.5, 1.25];
+    
+    for(let p of available) {
+        while(weight >= p) {
+            plates.push(p);
+            weight -= p;
+        }
+    }
+    
+    let html = `<div class='flex gap-1 items-center justify-center flex-wrap'>`;
+    if(plates.length === 0) html += "<span class='text-gray-500'>Barre vide (20kg)</span>";
+    
+    plates.forEach(p => {
+        let color = "bg-gray-700";
+        if(p===20) color = "bg-blue-600";
+        if(p===10) color = "bg-green-600";
+        if(p===5) color = "bg-yellow-600";
+        let size = p >= 10 ? "h-12 w-4" : "h-8 w-3";
+        html += `<div class='${size} ${color} rounded-sm border border-black/50' title='${p}kg'></div>`;
+    });
+    html += `</div><div class='mt-2 text-sm text-white font-mono'>${plates.map(p=>p).join(' + ')} <span class='text-gray-500'>(par côté)</span></div>`;
+    
+    resultDiv.innerHTML = html;
 }
 
 function openDaySelector() {
@@ -552,6 +614,8 @@ function renderMuscleInterface(plan, container) {
         card.className = `glass p-4 rounded-2xl border ${borderColor} transition-colors duration-300`;
         const deleteBtn = todaySets > 0 ? `<button onclick="deleteLastSet('${exo}')" class="text-red-400 text-xs underline ml-4">Supprimer dernier</button>` : '';
 
+        const calcBtn = `<button onclick="openPlateCalc()" class="absolute right-[-35px] top-2 text-xs text-gray-500 bg-gray-800 p-2 rounded-lg">🧮</button>`;
+
         card.innerHTML = `
             <div class="flex justify-between items-center mb-1">
                 <h3 class="font-bold text-white text-lg">${exo}</h3>
@@ -564,14 +628,17 @@ function renderMuscleInterface(plan, container) {
             <div class="text-[10px] text-gray-500 mb-3 text-right italic border-b border-gray-800 pb-1 flex justify-end items-center">
                 ${lastPerfText} ${oneRMText}
             </div>
+            
             <div class="flex items-center gap-2 mb-2">
                 <button class="bg-gray-700 w-8 h-8 rounded text-white active:bg-gray-600" onclick="adjustInput('kg-${idx}', -2.5)">-</button>
                 <div class="flex-1 relative">
                     <input type="number" id="kg-${idx}" placeholder="kg" class="w-full bg-bg border border-gray-600 rounded-lg p-3 text-center text-white font-bold text-lg focus:border-primary outline-none" value="${defaultKg}">
                     <span class="absolute right-2 top-3 text-xs text-gray-500">KG</span>
+                    ${idx === 0 || idx === 2 ? calcBtn : ''} 
                 </div>
                 <button class="bg-gray-700 w-8 h-8 rounded text-white active:bg-gray-600" onclick="adjustInput('kg-${idx}', 2.5)">+</button>
             </div>
+
             <div class="flex items-center gap-2 mb-4">
                 <button class="bg-gray-700 w-8 h-8 rounded text-white active:bg-gray-600" onclick="adjustInput('reps-${idx}', -1)">-</button>
                 <div class="flex-1 relative">
@@ -718,7 +785,7 @@ function logSwim(type) {
 }
 
 /* =========================================
-   TIMER SYSTEM (WITH SOUND TOGGLE)
+   TIMER SYSTEM
    ========================================= */
 function openTimer() {
     const modal = document.getElementById('timer-modal');
@@ -743,9 +810,7 @@ function openTimer() {
 }
 
 function triggerTimerAlert() {
-    // Si le son est coupé dans les réglages, on sort
     if (state.settings.sound === false) return;
-
     if ('vibrate' in navigator) {
         navigator.vibrate([200, 100, 200, 100, 200]);
     }
@@ -1000,17 +1065,15 @@ function logWeight() {
 }
 
 /* =========================================
-   SETTINGS & HELPERS (UPDATED V14)
+   SETTINGS
    ========================================= */
 function renderSettings() {
-    // 1. Timer
     document.getElementById('setting-timer').value = state.settings.timerDefault;
     document.getElementById('setting-timer').onchange = (e) => {
         state.settings.timerDefault = parseInt(e.target.value);
         saveData();
     };
 
-    // 2. Sound Toggle
     const soundToggle = document.getElementById('setting-sound');
     soundToggle.checked = state.settings.sound;
     soundToggle.onchange = (e) => {
@@ -1020,15 +1083,11 @@ function renderSettings() {
         else showToast("Mode silencieux 🔇");
     };
 
-    // 3. Goal Text
     const goalInput = document.getElementById('setting-goal');
     goalInput.value = state.settings.goalText || "";
     goalInput.onchange = (e) => {
         state.settings.goalText = e.target.value;
         saveData();
-        // Update dashboard if needed
-        const dashGoal = document.getElementById('dash-goal');
-        if(dashGoal) dashGoal.innerText = state.settings.goalText;
     };
 }
 
