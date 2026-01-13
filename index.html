@@ -46,15 +46,8 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .glass { background: rgba(17, 27, 46, 0.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-        
-        /* Toggle Switch */
-        .toggle-checkbox:checked {
-            right: 0;
-            border-color: #10b981;
-        }
-        .toggle-checkbox:checked + .toggle-label {
-            background-color: #10b981;
-        }
+        .toggle-checkbox:checked { right: 0; border-color: #10b981; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
     </style>
 </head>
 <body class="bg-bg text-gray-200 font-sans h-screen flex flex-col overflow-hidden selection:bg-primary selection:text-white">
@@ -218,6 +211,7 @@
 
         <div id="view-calendar" class="hidden p-4 md:p-8 animate-fade-in">
             <h2 class="text-2xl font-bold text-white mb-6">Historique</h2>
+            <p class="text-xs text-gray-400 mb-2">Clique sur un jour validé pour exporter son détail.</p>
             <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center mb-4"></div>
             <div class="mt-6 glass p-4 rounded-2xl">
                 <h3 class="text-sm font-bold text-white mb-2">Légende</h3>
@@ -241,12 +235,10 @@
             </div>
 
             <div class="glass rounded-2xl overflow-hidden divide-y divide-gray-800">
-                
                 <div class="p-4 flex justify-between items-center">
                     <span>⏱️ Timer par défaut (sec)</span>
                     <input type="number" id="setting-timer" class="bg-bg w-20 p-2 rounded text-center text-white border border-gray-700" value="90">
                 </div>
-
                 <div class="p-4 flex justify-between items-center">
                     <span>🔊 Sons & Vibrations</span>
                     <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
@@ -254,12 +246,10 @@
                         <label for="setting-sound" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-700 cursor-pointer"></label>
                     </div>
                 </div>
-
                 <div class="p-4 flex justify-between items-center">
                     <span>🎯 Objectif Actuel</span>
                     <input type="text" id="setting-goal" class="bg-bg w-32 p-2 rounded text-right text-sm text-gray-300 border-none outline-none" placeholder="76kg sec">
                 </div>
-
             </div>
 
             <div class="space-y-3 pt-4">
