@@ -2,50 +2,51 @@
    CONSTANTS & CONFIG
    ========================================= */
 const DAYS_PLAN = [
-    { name: "Repos / Batch Cooking", type: "rest", short: "Dimanche - Repos" }, 
+    { name: "Repos / Batch Cooking", type: "rest", short: "Repos" }, 
     { 
         name: "Dos & Biceps",
         type: "muscle",
-        short: "Lundi - Dos/Bi",
-        exos: ["Tractions (Lestées)", "Tirage Vertical Serré", "Tirage Machine", "Curl Debout", "Curl Incliné", "Curl Poulie"]
+        short: "Dos/Bi",
+        exos: ["Tractions (Lestées)", "Tirage Vertical", "Tirage Machine", "Curl Debout", "Curl Incliné", "Curl Poulie"]
     },
     { 
         name: "Natation HIIT",
         type: "swim_hiit",
-        short: "Mardi - Nage HIIT",
+        short: "Nage HIIT",
         details: [
-            "Échauffement: 200m crawl",
-            "Technique: 6x25m (récup 20s)",
-            "Série: 10x50m sprint (récup 30s)",
+            "Échauffement: 200m crawl (Continu)",
+            "Technique: 6x25m (Récup 20s fixe)",
+            "Série: 10x50m sprint (Récup 30s fixe)",
             "Calme: 100m souple"
         ]
     },
     { 
         name: "Jambes & Épaules",
         type: "muscle",
-        short: "Mercredi - Jambes",
+        short: "Jambes/Ép",
         exos: ["Presse à cuisses", "Leg Extension", "Leg Curl", "Développé Épaules", "Élévations Latérales"]
     },
     { 
         name: "Pecs & Triceps",
         type: "muscle",
-        short: "Jeudi - Pecs/Tri",
+        short: "Pecs/Tri",
         exos: ["Smith Incliné", "Écarté Haut", "Écarté Bas", "Triceps Poulie", "Extension Overhead", "Rappel Élévations"]
     },
     { 
         name: "Full Body Rappel",
         type: "muscle",
-        short: "Vendredi - Full Body",
+        short: "Full Body",
         exos: ["Tractions", "Presse (Léger)", "Smith Incliné", "Super-set Bras", "Élévations Latérales"]
     },
     { 
         name: "Natation Endurance",
         type: "swim_endurance",
-        short: "Samedi - Nage Endu",
+        short: "Nage Endu",
         details: [
-            "Échauffement: 300m facile",
+            "Échauffement: 300m facile (Continu)",
             "Pyramide: 200-400-600-400-200m",
-            "Finisher: 6x25m sprint",
+            "Repos pyramide: 45s entre distances",
+            "Finisher: 6x25m sprint (Récup 15s)",
             "Calme: 100m"
         ]
     }
@@ -77,7 +78,7 @@ const ACHIEVEMENTS = [
 const HEAVY_COMPOUND_LIFTS = [
     "Tractions", "Tractions (Lestées)", 
     "Presse à cuisses", "Développé Épaules", 
-    "Smith Incliné", "Tirage Vertical", "Tirage Vertical Serré"
+    "Smith Incliné", "Tirage Vertical"
 ];
 
 const DIET_PLAN = [
@@ -1065,7 +1066,7 @@ function logWeight() {
 }
 
 /* =========================================
-   SETTINGS
+   SETTINGS & HELPERS
    ========================================= */
 function renderSettings() {
     document.getElementById('setting-timer').value = state.settings.timerDefault;
