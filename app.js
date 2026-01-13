@@ -2,17 +2,17 @@
    CONSTANTS & CONFIG
    ========================================= */
 const DAYS_PLAN = [
-    { name: "Repos / Batch Cooking", type: "rest", short: "Repos" }, 
+    { name: "Repos / Batch Cooking", type: "rest", short: "Dimanche - Repos" }, 
     { 
         name: "Dos & Biceps",
         type: "muscle",
-        short: "Dos/Bi",
-        exos: ["Tractions (Lestées)", "Tirage Vertical", "Tirage Machine", "Curl Debout", "Curl Incliné", "Curl Poulie"]
+        short: "Lundi - Dos/Bi",
+        exos: ["Tractions (Lestées)", "Tirage Vertical Serré", "Tirage Machine", "Curl Debout", "Curl Incliné", "Curl Poulie"]
     },
     { 
         name: "Natation HIIT",
         type: "swim_hiit",
-        short: "Nage HIIT",
+        short: "Mardi - Nage HIIT",
         details: [
             "Échauffement: 200m crawl",
             "Technique: 6x25m (récup 20s)",
@@ -23,25 +23,25 @@ const DAYS_PLAN = [
     { 
         name: "Jambes & Épaules",
         type: "muscle",
-        short: "Jambes/Ép",
+        short: "Mercredi - Jambes",
         exos: ["Presse à cuisses", "Leg Extension", "Leg Curl", "Développé Épaules", "Élévations Latérales"]
     },
     { 
         name: "Pecs & Triceps",
         type: "muscle",
-        short: "Pecs/Tri",
+        short: "Jeudi - Pecs/Tri",
         exos: ["Smith Incliné", "Écarté Haut", "Écarté Bas", "Triceps Poulie", "Extension Overhead", "Rappel Élévations"]
     },
     { 
         name: "Full Body Rappel",
         type: "muscle",
-        short: "Full Body",
+        short: "Vendredi - Full Body",
         exos: ["Tractions", "Presse (Léger)", "Smith Incliné", "Super-set Bras", "Élévations Latérales"]
     },
     { 
         name: "Natation Endurance",
         type: "swim_endurance",
-        short: "Nage Endu",
+        short: "Samedi - Nage Endu",
         details: [
             "Échauffement: 300m facile",
             "Pyramide: 200-400-600-400-200m",
@@ -81,7 +81,7 @@ const ACHIEVEMENTS = [
 const HEAVY_COMPOUND_LIFTS = [
     "Tractions", "Tractions (Lestées)", 
     "Presse à cuisses", "Développé Épaules", 
-    "Smith Incliné", "Tirage Vertical"
+    "Smith Incliné", "Tirage Vertical", "Tirage Vertical Serré"
 ];
 
 const DIET_PLAN = [
@@ -123,6 +123,7 @@ let chartInstance = null;
 let currentSessionGoal = ""; 
 let currentExoForTimer = ""; 
 let isLogging = false;
+let forcedDayIndex = null; // Pour changer de séance manuellement
 
 /* =========================================
    INIT
@@ -164,17 +165,27 @@ function checkDailyReset() {
 function router(viewName) {
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
     
-    const modal = document.getElementById('goal-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.add('opacity-0'); 
+    // Fermer les modales au changement de vue
+    const goalModal = document.getElementById('goal-modal');
+    if (goalModal) {
+        goalModal.classList.add('hidden');
+        goalModal.classList.add('opacity-0'); 
+    }
+    const dayModal = document.getElementById('day-selector-modal');
+    if (dayModal) {
+        dayModal.classList.add('hidden');
+        dayModal.classList.add('opacity-0');
     }
 
     document.getElementById(`view-${viewName}`).classList.remove('hidden');
     
-    if (viewName !== 'workout') currentSessionGoal = "";
+    // Reset session goal si on quitte workout, sauf si on force
+    if (viewName !== 'workout') {
+        // On ne reset pas forcedDayIndex ici pour permettre de naviguer sans perdre le choix
+    } else {
+        renderWorkoutView();
+    }
 
-    if (viewName === 'workout') renderWorkoutView();
     if (viewName === 'stats') renderStats();
     if (viewName === 'calendar') renderCalendar();
     if (viewName === 'settings') renderSettings();
@@ -192,12 +203,11 @@ function initRouter() {
 }
 
 /* =========================================
-   GAMIFICATION ENGINE (LOGIC 2026)
+   GAMIFICATION ENGINE
    ========================================= */
 function checkGamification() {
     let newBadge = null;
     
-    // 1. STREAK
     const streak = calculateStreak();
     if (streak >= 7 && !state.badges.includes('streak_7')) newBadge = 'streak_7';
     if (streak >= 30 && !state.badges.includes('streak_30')) newBadge = 'streak_30';
@@ -205,34 +215,26 @@ function checkGamification() {
     if (streak >= 180 && !state.badges.includes('streak_180')) newBadge = 'streak_180';
     if (streak >= 365 && !state.badges.includes('streak_365')) newBadge = 'streak_365';
 
-    // 2. FORCE (Smith Incliné)
     const smithLogs = state.workouts.filter(w => w.exo === "Smith Incliné");
     const maxSmith = smithLogs.reduce((max, w) => Math.max(max, w.kg), 0);
-    
     if (maxSmith >= 80 && !state.badges.includes('smith_80')) newBadge = 'smith_80';
     if (maxSmith >= 100 && !state.badges.includes('smith_100')) newBadge = 'smith_100';
     if (maxSmith >= 120 && !state.badges.includes('smith_120')) newBadge = 'smith_120';
     if (maxSmith >= 140 && !state.badges.includes('smith_140')) newBadge = 'smith_140';
 
-    // 3. VOLUME TOTAL (TONNES)
-    // On calcule tout l'historique
     const totalVolumeKg = state.workouts.reduce((acc, w) => acc + (w.kg * w.reps), 0);
     const totalTons = totalVolumeKg / 1000;
-
     if (totalTons >= 100 && !state.badges.includes('vol_100t')) newBadge = 'vol_100t';
     if (totalTons >= 500 && !state.badges.includes('vol_500t')) newBadge = 'vol_500t';
     if (totalTons >= 1000 && !state.badges.includes('vol_1m')) newBadge = 'vol_1m';
     if (totalTons >= 2500 && !state.badges.includes('vol_2.5m')) newBadge = 'vol_2.5m';
 
-    // 4. DISTANCE NAGE TOTAL (KM)
     const totalSwimMeters = state.swims.reduce((acc, s) => acc + s.dist, 0);
     const totalSwimKm = totalSwimMeters / 1000;
-
     if (totalSwimKm >= 34 && !state.badges.includes('swim_34k')) newBadge = 'swim_34k';
     if (totalSwimKm >= 100 && !state.badges.includes('swim_100k')) newBadge = 'swim_100k';
     if (totalSwimKm >= 300 && !state.badges.includes('swim_300k')) newBadge = 'swim_300k';
 
-    // UNLOCK
     if (newBadge) {
         state.badges.push(newBadge);
         saveData();
@@ -249,8 +251,10 @@ function renderDashboard() {
     const qIndex = new Date().getDate() % QUOTES.length;
     document.getElementById('quote-text').innerText = `"${QUOTES[qIndex]}"`;
 
-    const dayIndex = new Date().getDay();
+    // Utilise forcedDayIndex si défini, sinon le jour réel
+    const dayIndex = forcedDayIndex !== null ? forcedDayIndex : new Date().getDay();
     const plan = DAYS_PLAN[dayIndex];
+    
     document.getElementById('today-workout-name').innerText = plan.name;
     document.getElementById('today-icon').innerText = plan.type.includes('swim') ? '🏊‍♂️' : (plan.type === 'rest' ? '💤' : '🏋️');
 
@@ -408,15 +412,24 @@ function downloadCalendar() {
 }
 
 /* =========================================
-   WORKOUT LOGIC
+   WORKOUT LOGIC & OVERRIDE SYSTEM
    ========================================= */
 function renderWorkoutView() {
     const container = document.getElementById('workout-container');
     container.innerHTML = '';
     
-    const dayIndex = new Date().getDay();
+    // LOGIQUE "FORCED DAY" : Si null, jour réel. Sinon, jour forcé.
+    const dayIndex = forcedDayIndex !== null ? forcedDayIndex : new Date().getDay();
     const plan = DAYS_PLAN[dayIndex];
-    document.getElementById('workout-title').innerText = plan.name;
+    
+    // TITRE AVEC BOUTON SWITCH
+    const titleHeader = document.getElementById('workout-title');
+    titleHeader.innerHTML = `
+        ${plan.name} 
+        <button onclick="openDaySelector()" class="ml-2 bg-gray-800 hover:bg-gray-700 text-xs text-accent px-2 py-1 rounded-lg border border-gray-700 align-middle">
+            🔄 Changer
+        </button>
+    `;
 
     if (plan.type === 'rest') {
         container.innerHTML = `<div class="text-center py-10 text-gray-400">Repos aujourd'hui. Profite pour faire du meal prep. 🥦</div>`;
@@ -440,6 +453,31 @@ function renderWorkoutView() {
     } else {
         renderMuscleInterface(plan, container);
     }
+}
+
+// Fonction pour ouvrir la modale de sélection de jour
+function openDaySelector() {
+    const modal = document.getElementById('day-selector-modal');
+    const content = document.getElementById('day-selector-content');
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+        content.classList.add('scale-100');
+    }, 10);
+}
+
+// Fonction pour forcer un jour
+function switchDay(index) {
+    forcedDayIndex = index;
+    currentSessionGoal = ""; // Reset de l'objectif de session pour choisir
+    
+    // Fermer la modale
+    const modal = document.getElementById('day-selector-modal');
+    modal.classList.add('opacity-0');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+    
+    renderWorkoutView(); // Re-render avec le nouveau jour
 }
 
 function selectGoal(goal) {
