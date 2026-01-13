@@ -7,7 +7,7 @@ const DAYS_PLAN = [
         name: "Dos & Biceps (Volume)",
         type: "muscle",
         short: "Lundi - Dos/Bi",
-        // AJOUT DU 3ème EXO BICEPS ICI : Curl Marteau pour la largeur
+        // V21 : 6 Exos (Curl Marteau inclus pour la largeur)
         exos: ["Tractions", "Tirage Vertical", "Tirage Horizontal", "Curl Haltère", "Curl Poulie", "Curl Marteau"]
     },
     { 
@@ -402,7 +402,7 @@ function downloadCalendar() {
 }
 
 /* =========================================
-   WORKOUT LOGIC (CLEAN V19)
+   WORKOUT LOGIC (CLEAN V21)
    ========================================= */
 function renderWorkoutView() {
     const container = document.getElementById('workout-container');
