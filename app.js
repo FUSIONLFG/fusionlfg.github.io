@@ -2,17 +2,18 @@
    CONSTANTS & CONFIG
    ========================================= */
 const DAYS_PLAN = [
-    { name: "Repos / Batch Cooking", type: "rest", short: "Repos" }, 
+    { name: "Repos / Batch Cooking", type: "rest", short: "Dimanche - Repos" }, 
     { 
-        name: "Dos & Biceps",
+        name: "Dos & Biceps (Volume)",
         type: "muscle",
-        short: "Dos/Bi",
-        exos: ["Tractions (Lestées)", "Tirage Vertical", "Tirage Machine", "Curl Debout", "Curl Incliné", "Curl Poulie"]
+        short: "Lundi - Dos/Bi",
+        // AJOUT DU 3ème EXO BICEPS ICI : Curl Marteau pour la largeur
+        exos: ["Tractions", "Tirage Vertical", "Tirage Horizontal", "Curl Haltère", "Curl Poulie", "Curl Marteau"]
     },
     { 
         name: "Natation HIIT",
         type: "swim_hiit",
-        short: "Nage HIIT",
+        short: "Mardi - Nage HIIT",
         details: [
             "Échauffement: 200m crawl (Continu)",
             "Technique: 6x25m (Récup 20s fixe)",
@@ -23,25 +24,25 @@ const DAYS_PLAN = [
     { 
         name: "Jambes & Épaules",
         type: "muscle",
-        short: "Jambes/Ép",
+        short: "Mercredi - Jambes",
         exos: ["Presse à cuisses", "Leg Extension", "Leg Curl", "Développé Épaules", "Élévations Latérales"]
     },
     { 
         name: "Pecs & Triceps",
         type: "muscle",
-        short: "Pecs/Tri",
+        short: "Jeudi - Pecs/Tri",
         exos: ["Smith Incliné", "Écarté Haut", "Écarté Bas", "Triceps Poulie", "Extension Overhead", "Rappel Élévations"]
     },
     { 
         name: "Full Body Rappel",
         type: "muscle",
-        short: "Full Body",
+        short: "Vendredi - Full Body",
         exos: ["Tractions", "Presse (Léger)", "Smith Incliné", "Super-set Bras", "Élévations Latérales"]
     },
     { 
         name: "Natation Endurance",
         type: "swim_endurance",
-        short: "Nage Endu",
+        short: "Samedi - Nage Endu",
         details: [
             "Échauffement: 300m facile (Continu)",
             "Pyramide: 200-400-600-400-200m",
@@ -76,9 +77,8 @@ const ACHIEVEMENTS = [
 ];
 
 const HEAVY_COMPOUND_LIFTS = [
-    "Tractions", "Tractions (Lestées)", 
-    "Presse à cuisses", "Développé Épaules", 
-    "Smith Incliné", "Tirage Vertical"
+    "Tractions", "Presse à cuisses", "Développé Épaules", 
+    "Smith Incliné", "Tirage Vertical", "Tirage Horizontal"
 ];
 
 const DIET_PLAN = [
@@ -165,7 +165,7 @@ function checkDailyReset() {
 function router(viewName) {
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
     
-    ['goal-modal', 'day-selector-modal', 'plate-modal'].forEach(id => {
+    ['goal-modal', 'day-selector-modal'].forEach(id => {
         const el = document.getElementById(id);
         if(el) { el.classList.add('hidden'); el.classList.add('opacity-0'); }
     });
@@ -402,7 +402,7 @@ function downloadCalendar() {
 }
 
 /* =========================================
-   WORKOUT LOGIC & PLATE MATH (SMART LOCK V16)
+   WORKOUT LOGIC (CLEAN V19)
    ========================================= */
 function renderWorkoutView() {
     const container = document.getElementById('workout-container');
@@ -420,7 +420,6 @@ function renderWorkoutView() {
          hasLogs = state.workouts.some(w => w.date.startsWith(todayStr) && plan.exos.includes(w.exo));
     }
 
-    // Si on a commencé (hasLogs), on cache le bouton "Changer"
     const switchBtn = hasLogs 
         ? `` 
         : `<button onclick="openDaySelector()" class="ml-2 bg-gray-800 hover:bg-gray-700 text-xs text-accent px-2 py-1 rounded-lg border border-gray-700 align-middle">🔄</button>`;
@@ -461,7 +460,6 @@ function renderWorkoutView() {
     container.appendChild(finishBtn);
 }
 
-// Fonction Fin de Séance (AVEC RESET)
 function finishSession() {
     const duration = sessionStartTime ? Math.floor((Date.now() - sessionStartTime) / 60000) : 0;
     const hour = Math.floor(duration / 60);
@@ -469,52 +467,11 @@ function finishSession() {
     const timeStr = hour > 0 ? `${hour}h${min}` : `${min} min`;
     
     sessionStartTime = null; 
-    forcedDayIndex = null; // C'EST ICI LE SECRET : On reset le choix forcé
+    forcedDayIndex = null; 
     
     router('home');
     showToast(`Séance terminée en ${timeStr} ! Bien joué 💪`);
     if (state.settings.sound && 'vibrate' in navigator) navigator.vibrate([100, 50, 100, 50, 400]);
-}
-
-function openPlateCalc() {
-    const modal = document.getElementById('plate-modal');
-    modal.classList.remove('hidden');
-    setTimeout(() => modal.classList.remove('opacity-0'), 10);
-}
-
-function calculatePlates() {
-    const target = parseFloat(document.getElementById('plate-target').value);
-    const resultDiv = document.getElementById('plate-result');
-    if(!target || target < 20) {
-        resultDiv.innerHTML = "<span class='text-gray-500'>Entre un poids > 20kg</span>";
-        return;
-    }
-    
-    let weight = (target - 20) / 2;
-    let plates = [];
-    const available = [20, 10, 5, 2.5, 1.25];
-    
-    for(let p of available) {
-        while(weight >= p) {
-            plates.push(p);
-            weight -= p;
-        }
-    }
-    
-    let html = `<div class='flex gap-1 items-center justify-center flex-wrap'>`;
-    if(plates.length === 0) html += "<span class='text-gray-500'>Barre vide (20kg)</span>";
-    
-    plates.forEach(p => {
-        let color = "bg-gray-700";
-        if(p===20) color = "bg-blue-600";
-        if(p===10) color = "bg-green-600";
-        if(p===5) color = "bg-yellow-600";
-        let size = p >= 10 ? "h-12 w-4" : "h-8 w-3";
-        html += `<div class='${size} ${color} rounded-sm border border-black/50' title='${p}kg'></div>`;
-    });
-    html += `</div><div class='mt-2 text-sm text-white font-mono'>${plates.map(p=>p).join(' + ')} <span class='text-gray-500'>(par côté)</span></div>`;
-    
-    resultDiv.innerHTML = html;
 }
 
 function openDaySelector() {
@@ -615,12 +572,13 @@ function renderMuscleInterface(plan, container) {
         card.className = `glass p-4 rounded-2xl border ${borderColor} transition-colors duration-300`;
         const deleteBtn = todaySets > 0 ? `<button onclick="deleteLastSet('${exo}')" class="text-red-400 text-xs underline ml-4">Supprimer dernier</button>` : '';
 
-        const calcBtn = `<button onclick="openPlateCalc()" class="absolute right-[-35px] top-2 text-xs text-gray-500 bg-gray-800 p-2 rounded-lg">🧮</button>`;
-
+        // Bouton Historique seulement (Pas de Plate Math)
         card.innerHTML = `
             <div class="flex justify-between items-center mb-1">
-                <h3 class="font-bold text-white text-lg">${exo}</h3>
-                <button onclick="showHistory('${exo}')" class="text-primary text-xs">Historique</button>
+                <h3 class="font-bold text-white text-lg truncate pr-2">${exo}</h3>
+                <div class="flex items-center shrink-0">
+                    <button onclick="showHistory('${exo}')" class="text-primary text-xs bg-surface border border-gray-700 px-2 py-1 rounded-lg">Historique</button>
+                </div>
             </div>
             <div class="flex justify-between items-center mb-1">
                 <span class="text-xs font-bold ${todaySets > 0 ? 'text-accent' : 'text-gray-600'}">Séries faites : ${todaySets}</span>
@@ -635,7 +593,6 @@ function renderMuscleInterface(plan, container) {
                 <div class="flex-1 relative">
                     <input type="number" id="kg-${idx}" placeholder="kg" class="w-full bg-bg border border-gray-600 rounded-lg p-3 text-center text-white font-bold text-lg focus:border-primary outline-none" value="${defaultKg}">
                     <span class="absolute right-2 top-3 text-xs text-gray-500">KG</span>
-                    ${idx === 0 || idx === 2 ? calcBtn : ''} 
                 </div>
                 <button class="bg-gray-700 w-8 h-8 rounded text-white active:bg-gray-600" onclick="adjustInput('kg-${idx}', 2.5)">+</button>
             </div>
@@ -854,7 +811,7 @@ function formatTime(totalSec) {
 }
 
 /* =========================================
-   CALENDAR & STATS
+   CALENDAR & STATS (EXPORT DAY CLICK)
    ========================================= */
 function renderCalendar() {
     const container = document.getElementById('calendar-grid');
@@ -880,18 +837,21 @@ function renderCalendar() {
         const dateStr = currentDate.toISOString().split('T')[0];
         
         const cell = document.createElement('div');
-        cell.className = 'aspect-square rounded-lg flex items-center justify-center text-xs font-mono border border-gray-800/50';
+        cell.className = 'aspect-square rounded-lg flex items-center justify-center text-xs font-mono border border-gray-800/50 transition-opacity';
         
         const hasWorkout = workoutDates.has(dateStr);
         const hasSwim = swimDates.has(dateStr);
         const isToday = (dateStr === today.toISOString().split('T')[0]);
         
         if (hasWorkout && hasSwim) {
-            cell.className += ' bg-gradient-to-br from-primary to-accent text-white font-bold';
+            cell.className += ' bg-gradient-to-br from-primary to-accent text-white font-bold cursor-pointer hover:opacity-80';
+            cell.onclick = () => exportSession(dateStr);
         } else if (hasWorkout) {
-            cell.className += ' bg-primary text-white';
+            cell.className += ' bg-primary text-white cursor-pointer hover:opacity-80';
+            cell.onclick = () => exportSession(dateStr);
         } else if (hasSwim) {
-            cell.className += ' bg-accent text-black';
+            cell.className += ' bg-accent text-black cursor-pointer hover:opacity-80';
+            cell.onclick = () => exportSession(dateStr);
         } else {
             cell.className += ' bg-surface/50 text-gray-600';
         }
@@ -901,6 +861,20 @@ function renderCalendar() {
         cell.textContent = currentDate.getDate();
         container.appendChild(cell);
     }
+}
+
+function exportSession(dateStr) {
+    const dayWorkouts = state.workouts.filter(w => w.date.startsWith(dateStr));
+    const daySwims = state.swims.filter(s => s.date.startsWith(dateStr));
+    
+    if(dayWorkouts.length === 0 && daySwims.length === 0) return showToast("Aucune donnée ce jour-là");
+
+    const exportObj = { date: dateStr, workouts: dayWorkouts, swims: daySwims };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", `chad_session_${dateStr}.json`);
+    dlAnchorElem.click();
 }
 
 function renderStats() {
