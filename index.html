@@ -67,8 +67,13 @@
     <main id="main-container" class="flex-1 md:ml-64 h-full overflow-y-auto pb-24 md:pb-6 relative scroll-smooth">
         
         <header class="md:hidden flex items-center justify-between p-4 bg-surface/80 backdrop-blur-md sticky top-0 z-10 border-b border-gray-800">
-            <div class="text-lg font-bold tracking-tighter text-primary">CHAD<span class="text-white">TRACKER</span></div>
-            <div id="header-date" class="text-xs text-gray-400"></div>
+            <div>
+                <div class="text-lg font-bold tracking-tighter text-primary">CHAD<span class="text-white">TRACKER</span></div>
+                <div id="header-date" class="text-xs text-gray-400"></div>
+            </div>
+            <button onclick="router('settings')" class="p-2 bg-gray-800 rounded-full text-gray-400 hover:text-white active:scale-95 transition-transform" title="Réglages">
+                ⚙️
+            </button>
         </header>
 
         <div id="view-home" class="p-4 md:p-8 space-y-6 animate-fade-in">
@@ -281,9 +286,9 @@
             <span class="text-xl mb-1">🏆</span>
             <span class="text-[10px]">Trophées</span>
         </button>
-        <button onclick="router('settings')" class="nav-item flex flex-col items-center justify-center w-1/5 text-gray-400 hover:text-white">
-            <span class="text-xl mb-1">⚙️</span>
-            <span class="text-[10px]">Opts</span>
+        <button onclick="router('calendar')" class="nav-item flex flex-col items-center justify-center w-1/5 text-gray-400 hover:text-white">
+            <span class="text-xl mb-1">📅</span>
+            <span class="text-[10px]">Journal</span>
         </button>
     </nav>
 
