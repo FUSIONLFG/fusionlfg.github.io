@@ -113,7 +113,8 @@ let state = {
     settings: {
         timerDefault: 90,
         notifications: false,
-        goalText: "76 kg sec"
+        goalText: "76 kg sec",
+        sound: true // Nouveau paramètre Son
     }
 };
 
@@ -123,7 +124,7 @@ let chartInstance = null;
 let currentSessionGoal = ""; 
 let currentExoForTimer = ""; 
 let isLogging = false;
-let forcedDayIndex = null; // Pour changer de séance manuellement
+let forcedDayIndex = null;
 
 /* =========================================
    INIT
@@ -140,7 +141,8 @@ function loadData() {
     if (s) {
         state = JSON.parse(s);
         if(!state.nutrition) state.nutrition = { water: 0, lastReset: new Date().toDateString() };
-        if(!state.settings) state.settings = { timerDefault: 90, notifications: false, goalText: "" };
+        if(!state.settings) state.settings = { timerDefault: 90, notifications: false, goalText: "", sound: true };
+        if(state.settings.sound === undefined) state.settings.sound = true; // Migration V14
         if(!state.badges) state.badges = [];
     }
 }
@@ -165,7 +167,7 @@ function checkDailyReset() {
 function router(viewName) {
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
     
-    // Fermer les modales au changement de vue
+    // Fermer les modales
     const goalModal = document.getElementById('goal-modal');
     if (goalModal) {
         goalModal.classList.add('hidden');
@@ -179,9 +181,8 @@ function router(viewName) {
 
     document.getElementById(`view-${viewName}`).classList.remove('hidden');
     
-    // Reset session goal si on quitte workout, sauf si on force
     if (viewName !== 'workout') {
-        // On ne reset pas forcedDayIndex ici pour permettre de naviguer sans perdre le choix
+        // On garde forcedDayIndex pour la navigation fluide
     } else {
         renderWorkoutView();
     }
@@ -240,7 +241,8 @@ function checkGamification() {
         saveData();
         const badgeInfo = ACHIEVEMENTS.find(a => a.id === newBadge);
         showToast(`🏆 DÉBLOQUÉ : ${badgeInfo.title} !`);
-        if ('vibrate' in navigator) navigator.vibrate([100, 50, 100, 50, 100, 50, 300]);
+        // Vibre seulement si le son est activé
+        if (state.settings.sound && 'vibrate' in navigator) navigator.vibrate([100, 50, 100, 50, 100, 50, 300]);
     }
 }
 
@@ -251,7 +253,6 @@ function renderDashboard() {
     const qIndex = new Date().getDate() % QUOTES.length;
     document.getElementById('quote-text').innerText = `"${QUOTES[qIndex]}"`;
 
-    // Utilise forcedDayIndex si défini, sinon le jour réel
     const dayIndex = forcedDayIndex !== null ? forcedDayIndex : new Date().getDay();
     const plan = DAYS_PLAN[dayIndex];
     
@@ -412,17 +413,15 @@ function downloadCalendar() {
 }
 
 /* =========================================
-   WORKOUT LOGIC & OVERRIDE SYSTEM
+   WORKOUT LOGIC & OVERRIDE
    ========================================= */
 function renderWorkoutView() {
     const container = document.getElementById('workout-container');
     container.innerHTML = '';
     
-    // LOGIQUE "FORCED DAY" : Si null, jour réel. Sinon, jour forcé.
     const dayIndex = forcedDayIndex !== null ? forcedDayIndex : new Date().getDay();
     const plan = DAYS_PLAN[dayIndex];
     
-    // TITRE AVEC BOUTON SWITCH
     const titleHeader = document.getElementById('workout-title');
     titleHeader.innerHTML = `
         ${plan.name} 
@@ -455,7 +454,6 @@ function renderWorkoutView() {
     }
 }
 
-// Fonction pour ouvrir la modale de sélection de jour
 function openDaySelector() {
     const modal = document.getElementById('day-selector-modal');
     const content = document.getElementById('day-selector-content');
@@ -467,17 +465,13 @@ function openDaySelector() {
     }, 10);
 }
 
-// Fonction pour forcer un jour
 function switchDay(index) {
     forcedDayIndex = index;
-    currentSessionGoal = ""; // Reset de l'objectif de session pour choisir
-    
-    // Fermer la modale
+    currentSessionGoal = "";
     const modal = document.getElementById('day-selector-modal');
     modal.classList.add('opacity-0');
     setTimeout(() => modal.classList.add('hidden'), 300);
-    
-    renderWorkoutView(); // Re-render avec le nouveau jour
+    renderWorkoutView();
 }
 
 function selectGoal(goal) {
@@ -724,7 +718,7 @@ function logSwim(type) {
 }
 
 /* =========================================
-   TIMER SYSTEM
+   TIMER SYSTEM (WITH SOUND TOGGLE)
    ========================================= */
 function openTimer() {
     const modal = document.getElementById('timer-modal');
@@ -749,6 +743,9 @@ function openTimer() {
 }
 
 function triggerTimerAlert() {
+    // Si le son est coupé dans les réglages, on sort
+    if (state.settings.sound === false) return;
+
     if ('vibrate' in navigator) {
         navigator.vibrate([200, 100, 200, 100, 200]);
     }
@@ -1003,13 +1000,35 @@ function logWeight() {
 }
 
 /* =========================================
-   SETTINGS & HELPERS
+   SETTINGS & HELPERS (UPDATED V14)
    ========================================= */
 function renderSettings() {
+    // 1. Timer
     document.getElementById('setting-timer').value = state.settings.timerDefault;
     document.getElementById('setting-timer').onchange = (e) => {
         state.settings.timerDefault = parseInt(e.target.value);
         saveData();
+    };
+
+    // 2. Sound Toggle
+    const soundToggle = document.getElementById('setting-sound');
+    soundToggle.checked = state.settings.sound;
+    soundToggle.onchange = (e) => {
+        state.settings.sound = e.target.checked;
+        saveData();
+        if(state.settings.sound) showToast("Son activé 🔊");
+        else showToast("Mode silencieux 🔇");
+    };
+
+    // 3. Goal Text
+    const goalInput = document.getElementById('setting-goal');
+    goalInput.value = state.settings.goalText || "";
+    goalInput.onchange = (e) => {
+        state.settings.goalText = e.target.value;
+        saveData();
+        // Update dashboard if needed
+        const dashGoal = document.getElementById('dash-goal');
+        if(dashGoal) dashGoal.innerText = state.settings.goalText;
     };
 }
 
